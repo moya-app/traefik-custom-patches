@@ -74,7 +74,12 @@ func (s *streamCompress) ServeTCP(conn tcp.WriteCloser) {
 	*/
 
 	// Wapper the connection with a compression algorithm
-	conn = NewZStdConnection(conn, s.level, s.dict)
+
+    // For Testing, wrapper with compress + decompress to show that all aspects work correctly. IE it should be plain in and plain out
+	conn = NewZStdCompressor(conn, s.level, s.dict)
+	conn = NewZStdDecompressor(conn, s.level, s.dict)
+	conn = NewZStdCompressor(conn, s.level, s.dict)
+	conn = NewZStdDecompressor(conn, s.level, s.dict)
 
 	s.next.ServeTCP(conn)
 }
