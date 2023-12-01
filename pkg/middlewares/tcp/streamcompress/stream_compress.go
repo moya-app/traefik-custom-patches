@@ -1,0 +1,80 @@
+package tcpstreamcompress
+
+import (
+	"context"
+	"errors"
+	"fmt"
+	"io/ioutil"
+
+	"github.com/traefik/traefik/v2/pkg/config/dynamic"
+	"github.com/traefik/traefik/v2/pkg/log"
+	"github.com/traefik/traefik/v2/pkg/middlewares"
+	"github.com/traefik/traefik/v2/pkg/tcp"
+)
+
+const (
+	typeName = "TCPStreamCompress"
+)
+
+// streamCompress is a middleware that provides compression on TCP streams
+type streamCompress struct {
+	next      tcp.Handler
+	algorithm string
+	name      string
+	dict      []byte
+	level     int
+}
+
+// New builds a new TCP StreamCompress
+func New(ctx context.Context, next tcp.Handler, config dynamic.TCPStreamCompress, name string) (tcp.Handler, error) {
+	logger := log.FromContext(middlewares.GetLoggerCtx(ctx, name, typeName))
+	logger.Debug("Creating middleware")
+
+	switch config.Algorithm {
+	case "zstd":
+		// success
+	default:
+		return nil, errors.New(fmt.Sprintf("unknown compression algorithm %s", config.Algorithm))
+	}
+
+	var dict []byte
+	if config.Dictionary != "" {
+		var err error
+		// Attempt to read the dictionary from the specified file
+		dict, err = ioutil.ReadFile(config.Dictionary)
+		if err != nil {
+			return nil, errors.New(fmt.Sprintf("failed to read dictionary file %s: %v", config.Dictionary, err))
+		}
+	}
+	logger.Debugf("Setting up TCP Stream compression with algorithm: %s", config.Algorithm)
+
+	return &streamCompress{
+		algorithm: config.Algorithm,
+		next:      next,
+		name:      name,
+		dict:      dict,
+		level:     config.Level,
+	}, nil
+}
+
+func (s *streamCompress) ServeTCP(conn tcp.WriteCloser) {
+	/*ctx := middlewares.GetLoggerCtx(context.Background(), s.name, typeName)
+	logger := log.FromContext(ctx)
+
+	addr := conn.RemoteAddr().String()
+
+	err := s.whiteLister.IsAuthorized(addr)
+	if err != nil {
+		logger.Errorf("Connection from %s rejected: %v", addr, err)
+		conn.Close()
+		return
+	}
+
+	logger.Debugf("Connection from %s accepted", addr)
+	*/
+
+	// Wapper the connection with a compression algorithm
+	conn = NewZStdConnection(conn, s.level, s.dict)
+
+	s.next.ServeTCP(conn)
+}
