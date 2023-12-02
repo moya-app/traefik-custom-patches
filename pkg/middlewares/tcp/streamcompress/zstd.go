@@ -2,7 +2,7 @@ package tcpstreamcompress
 
 import (
 	"fmt"
-	"github.com/DataDog/zstd"
+    zstd "github.com/valyala/gozstd"
 	"github.com/traefik/traefik/v2/pkg/tcp"
 	"io"
 )
@@ -11,16 +11,18 @@ import (
 type zstdDecompressor struct {
 	tcp.WriteCloser
 
-	reader io.ReadCloser
+	reader *zstd.Reader
 	writer *zstd.Writer
 }
 
-func NewZStdDecompressor(conn tcp.WriteCloser, level int, dict []byte) tcp.WriteCloser {
+func NewZStdDecompressor(conn tcp.WriteCloser, cdict *zstd.CDict, ddict *zstd.DDict) tcp.WriteCloser {
 	z := &zstdDecompressor{
 		WriteCloser: conn,
 	}
-	z.reader = zstd.NewReaderDict(conn, dict)
-	z.writer = zstd.NewWriterLevelDict(conn, level, dict)
+	z.reader = zstd.NewReaderDict(conn, ddict)
+	z.writer = zstd.NewWriterParams(conn, &zstd.WriterParams{
+        Dict: cdict,
+    })
 	return z
 }
 func (z *zstdDecompressor) Read(p []byte) (n int, err error) {
@@ -37,9 +39,9 @@ func (z *zstdDecompressor) Write(p []byte) (n int, err error) {
 }
 func (z *zstdDecompressor) cleanup() error {
 	// TODO: These may both return error so we should probably return to the caller if they do, but also clean up and keep the socket
-	return z.reader.Close()
-	// TODO: Crashes?
-	//z.writer.Close()
+    // TODO: Crashes
+	//z.reader.Release()
+	return z.writer.Close()
 }
 
 func (z *zstdDecompressor) Close() error {
@@ -67,17 +69,19 @@ type zstdCompressor struct {
     compressor_r *io.PipeReader
     decompressor_w *io.PipeWriter
 
-	decompressor io.ReadCloser
+	decompressor *zstd.Reader
 	compressor *zstd.Writer
 }
 
-func NewZStdCompressor(conn tcp.WriteCloser, level int, dict []byte) tcp.WriteCloser {
+func NewZStdCompressor(conn tcp.WriteCloser, cdict *zstd.CDict, ddict *zstd.DDict) tcp.WriteCloser {
 	z := &zstdCompressor{
 		WriteCloser: conn,
 	}
 
     compressor_r, compressor_w := io.Pipe()
-    z.compressor = zstd.NewWriterLevelDict(compressor_w, level, dict)
+	z.compressor = zstd.NewWriterParams(compressor_w, &zstd.WriterParams{
+        Dict: cdict,
+    })
     // TODO: I'm not particularly happy about these being goroutines, IMO they
     // should fit just fine into the Read/Write functions but it seemed to add
     // a lot of code overhead. Perhaps there is a library for it?
@@ -106,7 +110,7 @@ func NewZStdCompressor(conn tcp.WriteCloser, level int, dict []byte) tcp.WriteCl
     }()
 
     decompressor_r, decompressor_w := io.Pipe()
-    z.decompressor = zstd.NewReaderDict(decompressor_r, dict)
+    z.decompressor = zstd.NewReaderDict(decompressor_r, ddict)
     go func() {
         defer decompressor_w.Close()
         defer decompressor_r.Close()
@@ -126,9 +130,9 @@ func (z *zstdCompressor) Write(p []byte) (n int, err error) {
 }
 func (z *zstdCompressor) cleanup() error {
 	// TODO: These may both return error so we should probably return to the caller if they do, but also clean up and keep the socket
-	return z.decompressor.Close()
-	// TODO: This Crashes
-	//z.compressor.Close()
+    // TODO: Crashes
+	//z.decompressor.Release()
+	return z.compressor.Close()
 }
 
 func (z *zstdCompressor) Close() error {

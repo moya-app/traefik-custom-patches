@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io/ioutil"
 
+    zstd "github.com/valyala/gozstd"
 	"github.com/traefik/traefik/v2/pkg/config/dynamic"
 	"github.com/traefik/traefik/v2/pkg/log"
 	"github.com/traefik/traefik/v2/pkg/middlewares"
@@ -21,7 +22,8 @@ type streamCompress struct {
 	next      tcp.Handler
 	algorithm string
 	name      string
-	dict      []byte
+	cdict      *zstd.CDict
+	ddict      *zstd.DDict
 	level     int
 }
 
@@ -37,24 +39,30 @@ func New(ctx context.Context, next tcp.Handler, config dynamic.TCPStreamCompress
 		return nil, errors.New(fmt.Sprintf("unknown compression algorithm %s", config.Algorithm))
 	}
 
-	var dict []byte
-	if config.Dictionary != "" {
-		var err error
-		// Attempt to read the dictionary from the specified file
-		dict, err = ioutil.ReadFile(config.Dictionary)
-		if err != nil {
-			return nil, errors.New(fmt.Sprintf("failed to read dictionary file %s: %v", config.Dictionary, err))
-		}
-	}
-	logger.Debugf("Setting up TCP Stream compression with algorithm: %s", config.Algorithm)
-
-	return &streamCompress{
+    s := &streamCompress{
 		algorithm: config.Algorithm,
 		next:      next,
 		name:      name,
-		dict:      dict,
 		level:     config.Level,
-	}, nil
+	}
+	if config.Dictionary != "" {
+		// Attempt to read the dictionary from the specified file
+        dict_raw, err := ioutil.ReadFile(config.Dictionary)
+		if err != nil {
+			return nil, errors.New(fmt.Sprintf("failed to read dictionary file %s: %v", config.Dictionary, err))
+		}
+        s.ddict, err = zstd.NewDDict(dict_raw)
+        if err != nil {
+            return nil, errors.New(fmt.Sprintf("failed to create ddictionary %s: %v", config.Dictionary, err))
+        }
+        s.cdict, err = zstd.NewCDictLevel(dict_raw, config.Level)
+        if err != nil {
+            return nil, errors.New(fmt.Sprintf("failed to create cdictionary %s: %v", config.Dictionary, err))
+        }
+	}
+	logger.Debugf("Setting up TCP Stream compression with algorithm: %s", config.Algorithm)
+
+	return s, nil
 }
 
 func (s *streamCompress) ServeTCP(conn tcp.WriteCloser) {
@@ -76,10 +84,10 @@ func (s *streamCompress) ServeTCP(conn tcp.WriteCloser) {
 	// Wapper the connection with a compression algorithm
 
     // For Testing, wrapper with compress + decompress to show that all aspects work correctly. IE it should be plain in and plain out
-	conn = NewZStdCompressor(conn, s.level, s.dict)
-	conn = NewZStdDecompressor(conn, s.level, s.dict)
-	conn = NewZStdCompressor(conn, s.level, s.dict)
-	conn = NewZStdDecompressor(conn, s.level, s.dict)
+	conn = NewZStdCompressor(conn, s.cdict, s.ddict)
+	conn = NewZStdDecompressor(conn, s.cdict, s.ddict)
+	conn = NewZStdCompressor(conn, s.cdict, s.ddict)
+	conn = NewZStdDecompressor(conn, s.cdict, s.ddict)
 
 	s.next.ServeTCP(conn)
 }
