@@ -37,24 +37,23 @@ func New(ctx context.Context, next tcp.Handler, config dynamic.TCPStreamCompress
 		return nil, errors.New(fmt.Sprintf("unknown compression algorithm %s", config.Algorithm))
 	}
 
-	var dict []byte
+    s := &streamCompress{
+		algorithm: config.Algorithm,
+		next:      next,
+		name:      name,
+		level:     config.Level,
+	}
 	if config.Dictionary != "" {
-		var err error
+        var err error
 		// Attempt to read the dictionary from the specified file
-		dict, err = ioutil.ReadFile(config.Dictionary)
+        s.dict, err = ioutil.ReadFile(config.Dictionary)
 		if err != nil {
 			return nil, errors.New(fmt.Sprintf("failed to read dictionary file %s: %v", config.Dictionary, err))
 		}
 	}
 	logger.Debugf("Setting up TCP Stream compression with algorithm: %s", config.Algorithm)
 
-	return &streamCompress{
-		algorithm: config.Algorithm,
-		next:      next,
-		name:      name,
-		dict:      dict,
-		level:     config.Level,
-	}, nil
+	return s, nil
 }
 
 func (s *streamCompress) ServeTCP(conn tcp.WriteCloser) {

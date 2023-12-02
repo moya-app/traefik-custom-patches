@@ -2,7 +2,7 @@ package tcpstreamcompress
 
 import (
 	"fmt"
-	"github.com/DataDog/zstd"
+    "github.com/klauspost/compress/zstd"
 	"github.com/traefik/traefik/v2/pkg/tcp"
 	"io"
 )
@@ -11,16 +11,24 @@ import (
 type zstdDecompressor struct {
 	tcp.WriteCloser
 
-	reader io.ReadCloser
-	writer *zstd.Writer
+	reader *zstd.Decoder
+	writer *zstd.Encoder
 }
 
 func NewZStdDecompressor(conn tcp.WriteCloser, level int, dict []byte) tcp.WriteCloser {
 	z := &zstdDecompressor{
 		WriteCloser: conn,
 	}
-	z.reader = zstd.NewReaderDict(conn, dict)
-	z.writer = zstd.NewWriterLevelDict(conn, level, dict)
+    var err error
+    // TODO: Only add the dict param if dict was sent in, otherwise errs
+	z.reader, err = zstd.NewReader(conn) //, zstd.WithDecoderDicts(dict))
+    if err != nil {
+        panic(err)
+    }
+	z.writer, err = zstd.NewWriter(conn, zstd.WithEncoderLevel(zstd.SpeedBestCompression)) //, zstd.WithEncoderDict(dict))
+    if err != nil {
+        panic(err)
+    }
 	return z
 }
 func (z *zstdDecompressor) Read(p []byte) (n int, err error) {
@@ -37,9 +45,8 @@ func (z *zstdDecompressor) Write(p []byte) (n int, err error) {
 }
 func (z *zstdDecompressor) cleanup() error {
 	// TODO: These may both return error so we should probably return to the caller if they do, but also clean up and keep the socket
-	return z.reader.Close()
-	// TODO: Crashes?
-	//z.writer.Close()
+	z.reader.Close()
+	return z.writer.Close()
 }
 
 func (z *zstdDecompressor) Close() error {
@@ -67,8 +74,8 @@ type zstdCompressor struct {
     compressor_r *io.PipeReader
     decompressor_w *io.PipeWriter
 
-	decompressor io.ReadCloser
-	compressor *zstd.Writer
+	decompressor *zstd.Decoder
+	compressor *zstd.Encoder
 }
 
 func NewZStdCompressor(conn tcp.WriteCloser, level int, dict []byte) tcp.WriteCloser {
@@ -76,8 +83,13 @@ func NewZStdCompressor(conn tcp.WriteCloser, level int, dict []byte) tcp.WriteCl
 		WriteCloser: conn,
 	}
 
+    var err error
     compressor_r, compressor_w := io.Pipe()
-    z.compressor = zstd.NewWriterLevelDict(compressor_w, level, dict)
+	z.compressor, err = zstd.NewWriter(compressor_w, zstd.WithEncoderLevel(zstd.SpeedBestCompression))//, zstd.WithEncoderDict(dict))
+    if err != nil {
+        panic(err)
+    }
+
     // TODO: I'm not particularly happy about these being goroutines, IMO they
     // should fit just fine into the Read/Write functions but it seemed to add
     // a lot of code overhead. Perhaps there is a library for it?
@@ -106,7 +118,10 @@ func NewZStdCompressor(conn tcp.WriteCloser, level int, dict []byte) tcp.WriteCl
     }()
 
     decompressor_r, decompressor_w := io.Pipe()
-    z.decompressor = zstd.NewReaderDict(decompressor_r, dict)
+    z.decompressor, err = zstd.NewReader(decompressor_r) //, zstd.WithDecoderDicts(dict))
+    if err != nil {
+        panic(err)
+    }
     go func() {
         defer decompressor_w.Close()
         defer decompressor_r.Close()
@@ -126,9 +141,8 @@ func (z *zstdCompressor) Write(p []byte) (n int, err error) {
 }
 func (z *zstdCompressor) cleanup() error {
 	// TODO: These may both return error so we should probably return to the caller if they do, but also clean up and keep the socket
-	return z.decompressor.Close()
-	// TODO: This Crashes
-	//z.compressor.Close()
+	z.decompressor.Close()
+	return z.compressor.Close()
 }
 
 func (z *zstdCompressor) Close() error {
