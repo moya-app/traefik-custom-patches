@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/klauspost/compress/zstd"
 	"io/ioutil"
 
 	"github.com/traefik/traefik/v2/pkg/config/dynamic"
@@ -22,7 +23,7 @@ type streamCompress struct {
 	algorithm string
 	name      string
 	dict      []byte
-	level     int
+	level     zstd.EncoderLevel
 }
 
 // New builds a new TCP StreamCompress
@@ -37,16 +38,21 @@ func New(ctx context.Context, next tcp.Handler, config dynamic.TCPStreamCompress
 		return nil, errors.New(fmt.Sprintf("unknown compression algorithm %s", config.Algorithm))
 	}
 
-    s := &streamCompress{
+	found, level := zstd.EncoderLevelFromString(config.Level)
+	if !found && config.Level != "" {
+		return nil, errors.New(fmt.Sprintf("unknown compression level %s", config.Level))
+	}
+
+	s := &streamCompress{
 		algorithm: config.Algorithm,
 		next:      next,
 		name:      name,
-		level:     config.Level,
+		level:     level,
 	}
 	if config.Dictionary != "" {
-        var err error
+		var err error
 		// Attempt to read the dictionary from the specified file
-        s.dict, err = ioutil.ReadFile(config.Dictionary)
+		s.dict, err = ioutil.ReadFile(config.Dictionary)
 		if err != nil {
 			return nil, errors.New(fmt.Sprintf("failed to read dictionary file %s: %v", config.Dictionary, err))
 		}
@@ -74,7 +80,7 @@ func (s *streamCompress) ServeTCP(conn tcp.WriteCloser) {
 
 	// Wapper the connection with a compression algorithm
 
-    // For Testing, wrapper with compress + decompress to show that all aspects work correctly. IE it should be plain in and plain out
+	// For Testing, wrapper with compress + decompress to show that all aspects work correctly. IE it should be plain in and plain out
 	conn = NewZStdCompressor(conn, s.level, s.dict)
 	conn = NewZStdDecompressor(conn, s.level, s.dict)
 	conn = NewZStdCompressor(conn, s.level, s.dict)

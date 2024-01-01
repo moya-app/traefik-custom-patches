@@ -40,5 +40,5 @@ type TCPStreamCompress struct {
 	// Dictionary is an optional path to a zstd dictionary file
 	Dictionary string `json:"dictionary,omitempty" toml:"dictionary,omitempty" yaml:"dictionary,omitempty"`
 	// Level is the compression level to use
-	Level int `json:"level,omitempty" toml:"level,omitempty" yaml:"level,omitempty"`
+	Level string `json:"level,omitempty" toml:"level,omitempty" yaml:"level,omitempty"`
 }
