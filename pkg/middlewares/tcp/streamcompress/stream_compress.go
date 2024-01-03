@@ -24,6 +24,7 @@ type streamCompress struct {
 	name      string
 	dict      []byte
 	level     zstd.EncoderLevel
+	upstream  bool
 }
 
 // New builds a new TCP StreamCompress
@@ -48,6 +49,7 @@ func New(ctx context.Context, next tcp.Handler, config dynamic.TCPStreamCompress
 		next:      next,
 		name:      name,
 		level:     level,
+		upstream:  config.Upstream,
 	}
 	if config.Dictionary != "" {
 		var err error
@@ -78,13 +80,13 @@ func (s *streamCompress) ServeTCP(conn tcp.WriteCloser) {
 	logger.Debugf("Connection from %s accepted", addr)
 	*/
 
-	// Wapper the connection with a compression algorithm
+	// Wrap the connection with a compression algorithm
 
-	// For Testing, wrapper with compress + decompress to show that all aspects work correctly. IE it should be plain in and plain out
-	conn = NewZStdCompressor(conn, s.level, s.dict)
-	conn = NewZStdDecompressor(conn, s.level, s.dict)
-	conn = NewZStdCompressor(conn, s.level, s.dict)
-	conn = NewZStdDecompressor(conn, s.level, s.dict)
+	if s.upstream {
+		conn = NewZStdDecompressor(conn, s.level, s.dict)
+	} else {
+		conn = NewZStdCompressor(conn, s.level, s.dict)
+	}
 
 	s.next.ServeTCP(conn)
 }

@@ -39,6 +39,8 @@ type TCPStreamCompress struct {
 	Algorithm string `json:"algorithm,omitempty" toml:"algorithm,omitempty" yaml:"algorithm,omitempty"`
 	// Dictionary is an optional path to a zstd dictionary file
 	Dictionary string `json:"dictionary,omitempty" toml:"dictionary,omitempty" yaml:"dictionary,omitempty"`
-	// Level is the compression level to use
+	// Level is the compression level to use. Can be one of the following: fastest, default, better, best
 	Level string `json:"level,omitempty" toml:"level,omitempty" yaml:"level,omitempty"`
+	// Upstream defines whether the compression should be applied to the upstream or downstream connection.
+	Upstream bool `json:"upstream,omitempty" toml:"upstream,omitempty" yaml:"upstream,omitempty"`
 }
