@@ -51,27 +51,15 @@ func (z *zstdDecompressor) Write(p []byte) (n int, err error) {
 	}
 	return n, err
 }
-func (z *zstdDecompressor) cleanup() error {
-	// TODO: These may both return error so we should probably return to the caller if they do, but also clean up and keep the socket
-	z.reader.Close()
-	return z.writer.Close()
-}
 
 func (z *zstdDecompressor) Close() error {
-	err := z.cleanup()
-
-	if err != nil {
-		z.WriteCloser.Close()
-		return err
-	}
+	z.writer.Close()
+	defer z.reader.Close()
 	return z.WriteCloser.Close()
 }
 func (z *zstdDecompressor) CloseWrite() error {
-	err := z.cleanup()
-	if err != nil {
-		z.WriteCloser.CloseWrite()
-		return err
-	}
+	z.writer.Close()
+	defer z.reader.Close()
 	return z.WriteCloser.CloseWrite()
 }
 
@@ -156,26 +144,14 @@ func (z *zstdCompressor) Read(p []byte) (n int, err error) {
 func (z *zstdCompressor) Write(p []byte) (n int, err error) {
 	return z.decompressor_w.Write(p)
 }
-func (z *zstdCompressor) cleanup() error {
-	// TODO: These may both return error so we should probably return to the caller if they do, but also clean up and keep the socket
-	z.decompressor.Close()
-	return z.compressor.Close()
-}
 
 func (z *zstdCompressor) Close() error {
-	err := z.cleanup()
-
-	if err != nil {
-		z.WriteCloser.Close()
-		return err
-	}
+	defer z.decompressor.Close()
+	z.compressor.Close()
 	return z.WriteCloser.Close()
 }
 func (z *zstdCompressor) CloseWrite() error {
-	err := z.cleanup()
-	if err != nil {
-		z.WriteCloser.CloseWrite()
-		return err
-	}
+	defer z.decompressor.Close()
+	z.compressor.Close()
 	return z.WriteCloser.CloseWrite()
 }

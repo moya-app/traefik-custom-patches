@@ -65,21 +65,6 @@ func New(ctx context.Context, next tcp.Handler, config dynamic.TCPStreamCompress
 }
 
 func (s *streamCompress) ServeTCP(conn tcp.WriteCloser) {
-	/*ctx := middlewares.GetLoggerCtx(context.Background(), s.name, typeName)
-	logger := log.FromContext(ctx)
-
-	addr := conn.RemoteAddr().String()
-
-	err := s.whiteLister.IsAuthorized(addr)
-	if err != nil {
-		logger.Errorf("Connection from %s rejected: %v", addr, err)
-		conn.Close()
-		return
-	}
-
-	logger.Debugf("Connection from %s accepted", addr)
-	*/
-
 	// Wrap the connection with a compression algorithm
 
 	if s.upstream {
