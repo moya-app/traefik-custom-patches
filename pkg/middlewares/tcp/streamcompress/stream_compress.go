@@ -6,10 +6,9 @@ import (
 	"fmt"
 	"io/ioutil"
 
-	"github.com/traefik/traefik/v2/pkg/config/dynamic"
-	"github.com/traefik/traefik/v2/pkg/log"
-	"github.com/traefik/traefik/v2/pkg/middlewares"
-	"github.com/traefik/traefik/v2/pkg/tcp"
+	"github.com/traefik/traefik/v3/pkg/config/dynamic"
+	"github.com/traefik/traefik/v3/pkg/middlewares"
+	"github.com/traefik/traefik/v3/pkg/tcp"
 )
 
 const (
@@ -27,8 +26,8 @@ type streamCompress struct {
 
 // New builds a new TCP StreamCompress
 func New(ctx context.Context, next tcp.Handler, config dynamic.TCPStreamCompress, name string) (tcp.Handler, error) {
-	logger := log.FromContext(middlewares.GetLoggerCtx(ctx, name, typeName))
-	logger.Debug("Creating middleware")
+	logger := middlewares.GetLogger(ctx, name, typeName)
+	logger.Debug().Msgf("Creating middleware")
 
 	switch config.Algorithm {
 	case "zstd":
@@ -37,21 +36,21 @@ func New(ctx context.Context, next tcp.Handler, config dynamic.TCPStreamCompress
 		return nil, errors.New(fmt.Sprintf("unknown compression algorithm %s", config.Algorithm))
 	}
 
-    s := &streamCompress{
+	s := &streamCompress{
 		algorithm: config.Algorithm,
 		next:      next,
 		name:      name,
 		level:     config.Level,
 	}
 	if config.Dictionary != "" {
-        var err error
+		var err error
 		// Attempt to read the dictionary from the specified file
-        s.dict, err = ioutil.ReadFile(config.Dictionary)
+		s.dict, err = ioutil.ReadFile(config.Dictionary)
 		if err != nil {
 			return nil, errors.New(fmt.Sprintf("failed to read dictionary file %s: %v", config.Dictionary, err))
 		}
 	}
-	logger.Debugf("Setting up TCP Stream compression with algorithm: %s", config.Algorithm)
+	logger.Debug().Msgf("Setting up TCP Stream compression with algorithm: %s", config.Algorithm)
 
 	return s, nil
 }
@@ -74,7 +73,7 @@ func (s *streamCompress) ServeTCP(conn tcp.WriteCloser) {
 
 	// Wapper the connection with a compression algorithm
 
-    // For Testing, wrapper with compress + decompress to show that all aspects work correctly. IE it should be plain in and plain out
+	// For Testing, wrapper with compress + decompress to show that all aspects work correctly. IE it should be plain in and plain out
 	conn = NewZStdCompressor(conn, s.level, s.dict)
 	conn = NewZStdDecompressor(conn, s.level, s.dict)
 	conn = NewZStdCompressor(conn, s.level, s.dict)

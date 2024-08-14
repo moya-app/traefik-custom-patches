@@ -5,8 +5,8 @@ import (
 
 	"github.com/go-acme/lego/v4/challenge/tlsalpn01"
 	"github.com/stretchr/testify/assert"
-	"github.com/traefik/traefik/v2/pkg/config/dynamic"
-	"github.com/traefik/traefik/v2/pkg/tls"
+	"github.com/traefik/traefik/v3/pkg/config/dynamic"
+	"github.com/traefik/traefik/v3/pkg/tls"
 )
 
 func Test_mergeConfiguration(t *testing.T) {
@@ -113,7 +113,6 @@ func Test_mergeConfiguration(t *testing.T) {
 	}
 
 	for _, test := range testCases {
-		test := test
 		t.Run(test.desc, func(t *testing.T) {
 			t.Parallel()
 
@@ -162,7 +161,6 @@ func Test_mergeConfiguration_tlsCertificates(t *testing.T) {
 	}
 
 	for _, test := range testCases {
-		test := test
 		t.Run(test.desc, func(t *testing.T) {
 			t.Parallel()
 
@@ -346,8 +344,6 @@ func Test_mergeConfiguration_tlsOptions(t *testing.T) {
 	}
 
 	for _, test := range testCases {
-		test := test
-
 		t.Run(test.desc, func(t *testing.T) {
 			t.Parallel()
 
@@ -439,7 +435,6 @@ func Test_mergeConfiguration_tlsStore(t *testing.T) {
 	}
 
 	for _, test := range testCases {
-		test := test
 		t.Run(test.desc, func(t *testing.T) {
 			t.Parallel()
 
@@ -473,6 +468,8 @@ func Test_mergeConfiguration_defaultTCPEntryPoint(t *testing.T) {
 		Services: map[string]*dynamic.TCPService{
 			"service-1@provider-1": {},
 		},
+		Models:            map[string]*dynamic.TCPModel{},
+		ServersTransports: make(map[string]*dynamic.TCPServersTransport),
 	}
 
 	actual := mergeConfiguration(given, []string{"defaultEP"})
@@ -659,10 +656,53 @@ func Test_applyModel(t *testing.T) {
 				},
 			},
 		},
+		{
+			desc: "with TCP model, two entry points",
+			input: dynamic.Configuration{
+				TCP: &dynamic.TCPConfiguration{
+					Routers: map[string]*dynamic.TCPRouter{
+						"test": {
+							EntryPoints: []string{"websecure", "web"},
+						},
+						"test2": {
+							EntryPoints: []string{"web"},
+							RuleSyntax:  "barfoo",
+						},
+					},
+					Middlewares: make(map[string]*dynamic.TCPMiddleware),
+					Services:    make(map[string]*dynamic.TCPService),
+					Models: map[string]*dynamic.TCPModel{
+						"websecure@internal": {
+							DefaultRuleSyntax: "foobar",
+						},
+					},
+				},
+			},
+			expected: dynamic.Configuration{
+				TCP: &dynamic.TCPConfiguration{
+					Routers: map[string]*dynamic.TCPRouter{
+						"test": {
+							EntryPoints: []string{"websecure", "web"},
+							RuleSyntax:  "foobar",
+						},
+						"test2": {
+							EntryPoints: []string{"web"},
+							RuleSyntax:  "barfoo",
+						},
+					},
+					Middlewares: make(map[string]*dynamic.TCPMiddleware),
+					Services:    make(map[string]*dynamic.TCPService),
+					Models: map[string]*dynamic.TCPModel{
+						"websecure@internal": {
+							DefaultRuleSyntax: "foobar",
+						},
+					},
+				},
+			},
+		},
 	}
 
 	for _, test := range testCases {
-		test := test
 		t.Run(test.desc, func(t *testing.T) {
 			t.Parallel()
 
