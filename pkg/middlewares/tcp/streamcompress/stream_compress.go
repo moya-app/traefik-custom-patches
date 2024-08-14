@@ -7,10 +7,9 @@ import (
 	"github.com/klauspost/compress/zstd"
 	"io/ioutil"
 
-	"github.com/traefik/traefik/v2/pkg/config/dynamic"
-	"github.com/traefik/traefik/v2/pkg/log"
-	"github.com/traefik/traefik/v2/pkg/middlewares"
-	"github.com/traefik/traefik/v2/pkg/tcp"
+	"github.com/traefik/traefik/v3/pkg/config/dynamic"
+	"github.com/traefik/traefik/v3/pkg/middlewares"
+	"github.com/traefik/traefik/v3/pkg/tcp"
 )
 
 const (
@@ -29,8 +28,8 @@ type streamCompress struct {
 
 // New builds a new TCP StreamCompress
 func New(ctx context.Context, next tcp.Handler, config dynamic.TCPStreamCompress, name string) (tcp.Handler, error) {
-	logger := log.FromContext(middlewares.GetLoggerCtx(ctx, name, typeName))
-	logger.Debug("Creating middleware")
+	logger := middlewares.GetLogger(ctx, name, typeName)
+	logger.Debug().Msgf("Creating middleware")
 
 	switch config.Algorithm {
 	case "zstd":
@@ -59,7 +58,7 @@ func New(ctx context.Context, next tcp.Handler, config dynamic.TCPStreamCompress
 			return nil, errors.New(fmt.Sprintf("failed to read dictionary file %s: %v", config.Dictionary, err))
 		}
 	}
-	logger.Debugf("Setting up TCP Stream compression with algorithm: %s", config.Algorithm)
+	logger.Debug().Msgf("Setting up TCP Stream compression with algorithm: %s", config.Algorithm)
 
 	return s, nil
 }

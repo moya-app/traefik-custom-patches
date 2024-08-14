@@ -1,12 +1,12 @@
 package tcp
 
 import (
+	"context"
 	"crypto/tls"
 	"fmt"
+	"github.com/traefik/traefik/v3/pkg/middlewares"
 	"golang.org/x/sys/unix"
 	"net"
-
-	"github.com/traefik/traefik/v2/pkg/log"
 )
 
 // TLSHandler handles TLS connections.
@@ -51,6 +51,7 @@ func (c *accountedConnection) Write(b []byte) (n int, err error) {
 
 func (c *accountedConnection) DumpStats() {
 	extra := ""
+	logger := middlewares.GetLogger(context.Background(), c.name, "TLS")
 
 	switch c.WriteCloser.(type) {
 	case *tls.Conn:
@@ -69,25 +70,25 @@ func (c *accountedConnection) DumpStats() {
 
 		rawConn, err := tcp_conn.SyscallConn()
 		if err != nil {
-			log.WithoutContext().Errorf("Error getting raw connection: %v", err)
+			logger.Error().Msgf("Error getting raw connection: %v", err)
 		} else {
 			err := rawConn.Control(func(fd uintptr) {
 				info, err := unix.GetsockoptTCPInfo(int(fd), unix.IPPROTO_TCP, unix.TCP_INFO)
 				if err != nil {
-					log.WithoutContext().Errorf("Error getting TCP_INFO: %v", err)
+					logger.Error().Msgf("Error getting TCP_INFO: %v", err)
 				}
 				extra += fmt.Sprintf(", lost: %d, retrans: %d, tcpi_segs_out: %d, tcpi_bytes_sent: %d, tcpi_segs_in: %d, tcpi_bytes_received: %d", info.Lost, info.Retrans, info.Segs_out, info.Bytes_sent, info.Segs_in, info.Bytes_received)
 			})
 
 			if err != nil {
-				log.WithoutContext().Errorf("Error getting raw connection: %v", err)
+				logger.Error().Msgf("Error getting raw connection: %v", err)
 			}
 		}
 
 	default:
-		log.WithoutContext().Errorf("Unknown connection type: %T", c.WriteCloser)
+		logger.Error().Msgf("Unknown connection type: %T", c.WriteCloser)
 	}
-	log.WithoutContext().Infof("Connection closed: %s, Remote Address: %s, Bytes Read: %d, Bytes Written: %d%s", c.name, c.RemoteAddr().String(), c.bytesRead, c.bytesWritten, extra)
+	logger.Info().Msgf("Connection closed: %s, Remote Address: %s, Bytes Read: %d, Bytes Written: %d%s", c.name, c.RemoteAddr().String(), c.bytesRead, c.bytesWritten, extra)
 }
 
 func (c *accountedConnection) Close() error {

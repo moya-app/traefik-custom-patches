@@ -11,9 +11,9 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	dto "github.com/prometheus/client_model/go"
 	"github.com/stretchr/testify/assert"
-	"github.com/traefik/traefik/v2/pkg/config/dynamic"
-	th "github.com/traefik/traefik/v2/pkg/testhelpers"
-	"github.com/traefik/traefik/v2/pkg/types"
+	"github.com/traefik/traefik/v3/pkg/config/dynamic"
+	th "github.com/traefik/traefik/v3/pkg/testhelpers"
+	"github.com/traefik/traefik/v3/pkg/types"
 )
 
 func TestRegisterPromState(t *testing.T) {
@@ -64,7 +64,6 @@ func TestRegisterPromState(t *testing.T) {
 	}
 
 	for _, test := range testCases {
-		test := test
 		t.Run(test.desc, func(t *testing.T) {
 			actualNbRegistries := 0
 			for _, prom := range test.prometheusSlice {
@@ -105,9 +104,11 @@ func TestPrometheus(t *testing.T) {
 	}
 
 	prometheusRegistry.ConfigReloadsCounter().Add(1)
-	prometheusRegistry.ConfigReloadsFailureCounter().Add(1)
 	prometheusRegistry.LastConfigReloadSuccessGauge().Set(float64(time.Now().Unix()))
-	prometheusRegistry.LastConfigReloadFailureGauge().Set(float64(time.Now().Unix()))
+	prometheusRegistry.
+		OpenConnectionsGauge().
+		With("entrypoint", "test", "protocol", "TCP").
+		Set(1)
 
 	prometheusRegistry.
 		TLSCertsNotAfterTimestampGauge().
@@ -122,10 +123,6 @@ func TestPrometheus(t *testing.T) {
 		EntryPointReqDurationHistogram().
 		With("code", strconv.Itoa(http.StatusOK), "method", http.MethodGet, "protocol", "http", "entrypoint", "http").
 		Observe(1)
-	prometheusRegistry.
-		EntryPointOpenConnsGauge().
-		With("method", http.MethodGet, "protocol", "http", "entrypoint", "http").
-		Set(1)
 	prometheusRegistry.
 		EntryPointRespsBytesCounter().
 		With("code", strconv.Itoa(http.StatusOK), "method", http.MethodGet, "protocol", "http", "entrypoint", "http").
@@ -148,10 +145,6 @@ func TestPrometheus(t *testing.T) {
 		With("router", "demo", "service", "service1", "code", strconv.Itoa(http.StatusOK), "method", http.MethodGet, "protocol", "http").
 		Observe(10000)
 	prometheusRegistry.
-		RouterOpenConnsGauge().
-		With("router", "demo", "service", "service1", "method", http.MethodGet, "protocol", "http").
-		Set(1)
-	prometheusRegistry.
 		RouterRespsBytesCounter().
 		With("router", "demo", "service", "service1", "code", strconv.Itoa(http.StatusOK), "method", http.MethodGet, "protocol", "http").
 		Add(1)
@@ -172,10 +165,6 @@ func TestPrometheus(t *testing.T) {
 		ServiceReqDurationHistogram().
 		With("service", "service1", "code", strconv.Itoa(http.StatusOK), "method", http.MethodGet, "protocol", "http").
 		Observe(10000)
-	prometheusRegistry.
-		ServiceOpenConnsGauge().
-		With("service", "service1", "method", http.MethodGet, "protocol", "http").
-		Set(1)
 	prometheusRegistry.
 		ServiceRetriesCounter().
 		With("service", "service1").
@@ -207,25 +196,25 @@ func TestPrometheus(t *testing.T) {
 			assert: buildCounterAssert(t, configReloadsTotalName, 1),
 		},
 		{
-			name:   configReloadsFailuresTotalName,
-			assert: buildCounterAssert(t, configReloadsFailuresTotalName, 1),
-		},
-		{
 			name:   configLastReloadSuccessName,
 			assert: buildTimestampAssert(t, configLastReloadSuccessName),
 		},
 		{
-			name:   configLastReloadFailureName,
-			assert: buildTimestampAssert(t, configLastReloadFailureName),
+			name: openConnectionsName,
+			labels: map[string]string{
+				"protocol":   "TCP",
+				"entrypoint": "test",
+			},
+			assert: buildGaugeAssert(t, openConnectionsName, 1),
 		},
 		{
-			name: tlsCertsNotAfterTimestamp,
+			name: tlsCertsNotAfterTimestampName,
 			labels: map[string]string{
 				"cn":     "value",
 				"serial": "value",
 				"sans":   "value",
 			},
-			assert: buildTimestampAssert(t, tlsCertsNotAfterTimestamp),
+			assert: buildTimestampAssert(t, tlsCertsNotAfterTimestampName),
 		},
 		{
 			name: entryPointReqsTotalName,
@@ -247,15 +236,6 @@ func TestPrometheus(t *testing.T) {
 				"entrypoint": "http",
 			},
 			assert: buildHistogramAssert(t, entryPointReqDurationName, 1),
-		},
-		{
-			name: entryPointOpenConnsName,
-			labels: map[string]string{
-				"method":     http.MethodGet,
-				"protocol":   "http",
-				"entrypoint": "http",
-			},
-			assert: buildGaugeAssert(t, entryPointOpenConnsName, 1),
 		},
 		{
 			name: entryPointReqsBytesTotalName,
@@ -311,16 +291,6 @@ func TestPrometheus(t *testing.T) {
 			assert: buildHistogramAssert(t, routerReqDurationName, 1),
 		},
 		{
-			name: routerOpenConnsName,
-			labels: map[string]string{
-				"method":   http.MethodGet,
-				"protocol": "http",
-				"service":  "service1",
-				"router":   "demo",
-			},
-			assert: buildGaugeAssert(t, routerOpenConnsName, 1),
-		},
-		{
 			name: routerReqsBytesTotalName,
 			labels: map[string]string{
 				"code":     "200",
@@ -373,15 +343,6 @@ func TestPrometheus(t *testing.T) {
 			assert: buildHistogramAssert(t, serviceReqDurationName, 1),
 		},
 		{
-			name: serviceOpenConnsName,
-			labels: map[string]string{
-				"method":   http.MethodGet,
-				"protocol": "http",
-				"service":  "service1",
-			},
-			assert: buildGaugeAssert(t, serviceOpenConnsName, 1),
-		},
-		{
 			name: serviceRetriesTotalName,
 			labels: map[string]string{
 				"service": "service1",
@@ -419,7 +380,6 @@ func TestPrometheus(t *testing.T) {
 	}
 
 	for _, test := range testCases {
-		test := test
 		t.Run(test.name, func(t *testing.T) {
 			family := findMetricFamily(test.name, metricsFamilies)
 			if family == nil {
