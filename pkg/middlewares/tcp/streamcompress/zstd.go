@@ -1,7 +1,6 @@
 package tcpstreamcompress
 
 import (
-	"fmt"
 	"github.com/klauspost/compress/zstd"
 	"github.com/traefik/traefik/v3/pkg/tcp"
 	"io"
@@ -56,7 +55,7 @@ func (z *zstdDecompressor) Write(p []byte) (n int, err error) {
 
 func (z *zstdDecompressor) Close() error {
 	z.writer.Close()
-	z.reader.Close()
+	defer z.reader.Close()
 	return z.WriteCloser.Close()
 }
 func (z *zstdDecompressor) CloseWrite() error {
@@ -112,7 +111,6 @@ func NewZStdCompressor(conn tcp.WriteCloser, level zstd.EncoderLevel, dict []byt
 		for {
 			// read from conn and write to compressor. Cannot use io.Copy because it will not flush
 			n, err := conn.Read(tmp)
-			fmt.Printf("Compressor read %d bytes: %s\n", n, tmp[0:n])
 			if err != nil {
 				return
 			}
