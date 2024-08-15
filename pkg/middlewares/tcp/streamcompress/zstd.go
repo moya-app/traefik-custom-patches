@@ -60,7 +60,6 @@ func (z *zstdDecompressor) Close() error {
 }
 func (z *zstdDecompressor) CloseWrite() error {
 	z.writer.Close()
-	z.reader.Reset(nil) // check if this can be improved
 	return z.WriteCloser.CloseWrite()
 }
 
@@ -172,5 +171,6 @@ func (z *zstdCompressor) Close() error {
 func (z *zstdCompressor) CloseWrite() error {
 	z.decompressor_w.CloseWithError(io.EOF)
 	z.writeWaitGroup.Wait()
+
 	return z.WriteCloser.CloseWrite()
 }
