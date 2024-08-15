@@ -2,6 +2,9 @@ package tcpstreamcompress
 
 import (
 	"bytes"
+	"io"
+	"sync"
+
 	"github.com/klauspost/compress/zstd"
 	"github.com/traefik/traefik/v3/pkg/tcp"
 )
@@ -71,13 +74,14 @@ type zstdCompressor struct {
 
 	readBuffer  bytes.Buffer
 	writeBuffer bytes.Buffer
-	chuckSize   int
+	writeMu     sync.Mutex
+	chunkSize   int
 }
 
 func NewZStdCompressor(conn tcp.WriteCloser, level zstd.EncoderLevel, dict []byte) tcp.WriteCloser {
 	z := &zstdCompressor{
 		WriteCloser: conn,
-		chuckSize:   4 * 1024,
+		chunkSize:   4 * 1024,
 	}
 
 	var err error
@@ -104,26 +108,32 @@ func NewZStdCompressor(conn tcp.WriteCloser, level zstd.EncoderLevel, dict []byt
 
 func (z *zstdCompressor) Read(p []byte) (n int, err error) {
 	if z.readBuffer.Len() == 0 {
-		unCompressedData := make([]byte, z.chuckSize)
-		n, err = z.WriteCloser.Read(unCompressedData)
-		if err != nil {
+		uncompressedData := make([]byte, z.chunkSize)
+		n, err := z.WriteCloser.Read(uncompressedData)
+		if err != nil && err != io.EOF {
 			return 0, err
 		}
-
-		compressedData := z.writer.EncodeAll(unCompressedData[:n], make([]byte, 0))
-		z.readBuffer.Write(compressedData)
+		if n > 0 {
+			compressedData := z.writer.EncodeAll(uncompressedData[:n], nil)
+			z.readBuffer.Write(compressedData)
+		}
+		if err == io.EOF && z.readBuffer.Len() == 0 {
+			return 0, io.EOF
+		}
 	}
-
 	return z.readBuffer.Read(p)
 }
 
 func (z *zstdCompressor) Write(p []byte) (n int, err error) {
+	z.writeMu.Lock()
+	defer z.writeMu.Unlock()
+
 	n, err = z.writeBuffer.Write(p)
 	if err != nil {
 		return 0, err
 	}
 
-	if z.writeBuffer.Len() > z.chuckSize {
+	if z.writeBuffer.Len() > z.chunkSize {
 		err = z.Flush()
 		if err != nil {
 			return 0, err
@@ -139,7 +149,7 @@ func (z *zstdCompressor) Flush() error {
 	}
 	compressedData := z.writeBuffer.Bytes()
 	z.writeBuffer.Reset()
-	decompressedData, err := z.reader.DecodeAll(compressedData, make([]byte, 0, z.chuckSize))
+	decompressedData, err := z.reader.DecodeAll(compressedData, make([]byte, 0, z.chunkSize))
 	if err != nil {
 		return err
 	}
