@@ -5,6 +5,7 @@ import (
 	"github.com/klauspost/compress/zstd"
 	"github.com/traefik/traefik/v3/pkg/tcp"
 	"io"
+	"sync"
 )
 
 // Take compressed data from upstream and send it plain to backend
@@ -54,12 +55,12 @@ func (z *zstdDecompressor) Write(p []byte) (n int, err error) {
 
 func (z *zstdDecompressor) Close() error {
 	z.writer.Close()
-	defer z.reader.Close()
+	z.reader.Close()
 	return z.WriteCloser.Close()
 }
 func (z *zstdDecompressor) CloseWrite() error {
 	z.writer.Close()
-	defer z.reader.Close()
+	z.reader.Reset(nil) // check if this can be improved
 	return z.WriteCloser.CloseWrite()
 }
 
@@ -70,13 +71,17 @@ type zstdCompressor struct {
 	compressor_r   *io.PipeReader
 	decompressor_w *io.PipeWriter
 
-	decompressor *zstd.Decoder
-	compressor   *zstd.Encoder
+	decompressor   *zstd.Decoder
+	compressor     *zstd.Encoder
+	writeWaitGroup sync.WaitGroup
+	waitGroup      sync.WaitGroup
 }
 
 func NewZStdCompressor(conn tcp.WriteCloser, level zstd.EncoderLevel, dict []byte) tcp.WriteCloser {
 	z := &zstdCompressor{
-		WriteCloser: conn,
+		WriteCloser:    conn,
+		writeWaitGroup: sync.WaitGroup{},
+		waitGroup:      sync.WaitGroup{},
 	}
 
 	var err error
@@ -95,8 +100,13 @@ func NewZStdCompressor(conn tcp.WriteCloser, level zstd.EncoderLevel, dict []byt
 	// should fit just fine into the Read/Write functions but it seemed to add
 	// a lot of code overhead. Perhaps there is a library for it?
 	go func() {
-		defer compressor_w.Close()
-		defer compressor_r.Close()
+		z.waitGroup.Add(1)
+		defer func() {
+			compressor_w.CloseWithError(io.EOF)
+			compressor_r.CloseWithError(io.EOF)
+			z.compressor.Close()
+			z.waitGroup.Done()
+		}()
 
 		tmp := make([]byte, 32*1024)
 		for {
@@ -128,8 +138,13 @@ func NewZStdCompressor(conn tcp.WriteCloser, level zstd.EncoderLevel, dict []byt
 		panic(err)
 	}
 	go func() {
-		defer decompressor_w.Close()
-		defer decompressor_r.Close()
+		z.writeWaitGroup.Add(1)
+		defer func() {
+			decompressor_w.CloseWithError(io.EOF)
+			decompressor_r.CloseWithError(io.EOF)
+			z.decompressor.Close()
+			z.writeWaitGroup.Done()
+		}()
 		io.Copy(conn, z.decompressor)
 	}()
 
@@ -146,12 +161,16 @@ func (z *zstdCompressor) Write(p []byte) (n int, err error) {
 }
 
 func (z *zstdCompressor) Close() error {
-	defer z.decompressor.Close()
-	z.compressor.Close()
+	z.decompressor_w.CloseWithError(io.EOF)
+	z.writeWaitGroup.Wait()
+
+	z.compressor_r.CloseWithError(io.EOF)
+	z.waitGroup.Wait()
+
 	return z.WriteCloser.Close()
 }
 func (z *zstdCompressor) CloseWrite() error {
-	defer z.decompressor.Close()
-	z.compressor.Close()
+	z.decompressor_w.CloseWithError(io.EOF)
+	z.writeWaitGroup.Wait()
 	return z.WriteCloser.CloseWrite()
 }
