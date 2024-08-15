@@ -6,6 +6,7 @@ import (
 	"github.com/traefik/traefik/v3/pkg/tcp"
 	"io"
 	"sync"
+	"time"
 )
 
 // Take compressed data from upstream and send it plain to backend
@@ -98,8 +99,8 @@ func NewZStdCompressor(conn tcp.WriteCloser, level zstd.EncoderLevel, dict []byt
 	// TODO: I'm not particularly happy about these being goroutines, IMO they
 	// should fit just fine into the Read/Write functions but it seemed to add
 	// a lot of code overhead. Perhaps there is a library for it?
+	z.waitGroup.Add(1)
 	go func() {
-		z.waitGroup.Add(1)
 		defer func() {
 			compressor_w.CloseWithError(io.EOF)
 			compressor_r.CloseWithError(io.EOF)
@@ -136,8 +137,8 @@ func NewZStdCompressor(conn tcp.WriteCloser, level zstd.EncoderLevel, dict []byt
 	if err != nil {
 		panic(err)
 	}
+	z.writeWaitGroup.Add(1)
 	go func() {
-		z.writeWaitGroup.Add(1)
 		defer func() {
 			decompressor_w.CloseWithError(io.EOF)
 			decompressor_r.CloseWithError(io.EOF)
@@ -163,7 +164,7 @@ func (z *zstdCompressor) Close() error {
 	z.decompressor_w.CloseWithError(io.EOF)
 	z.writeWaitGroup.Wait()
 
-	z.compressor_r.CloseWithError(io.EOF)
+	z.WriteCloser.SetReadDeadline(time.Now())
 	z.waitGroup.Wait()
 
 	return z.WriteCloser.Close()
