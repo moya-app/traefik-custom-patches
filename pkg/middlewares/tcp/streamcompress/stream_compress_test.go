@@ -9,6 +9,7 @@ import (
 	"github.com/traefik/traefik/v3/pkg/tcp"
 	"io"
 	"net"
+	"sync"
 	"testing"
 	"time"
 )
@@ -204,6 +205,65 @@ func TestStreamCompress_ServeTCPDecompression(t *testing.T) {
 
 	err = server.Close()
 	require.NoError(t, err)
+}
+
+func BenchmarkStreamCompress(b *testing.B) {
+	numberOfConnections := 1000
+	compressor, err := zstd.NewWriter(nil)
+	require.NoError(b, err)
+
+	compressedMessage := compressor.EncodeAll([]byte(message), nil)
+	assert.NotEqual(b, []byte(message), compressedMessage)
+
+	err = compressor.Close()
+	require.NoError(b, err)
+
+	next := tcp.HandlerFunc(func(conn tcp.WriteCloser) {
+		// will write compressed data to decompressor(decompresses data) -> client -> server.
+		write, err := conn.Write(compressedMessage)
+		require.NoError(b, err)
+		assert.Equal(b, len(compressedMessage), write)
+
+		time.Sleep(100 * time.Millisecond)
+
+		err = conn.Close()
+		require.NoError(b, err)
+	})
+
+	decompressorConfig := dynamic.TCPStreamCompress{
+		Algorithm: "zstd",
+		Level:     "best",
+		Upstream:  false,
+	}
+
+	connectionWg := sync.WaitGroup{}
+	for i := 0; i < numberOfConnections; i++ {
+		connectionWg.Add(1)
+		go func() {
+			// Pipeline is now decompressor ⇌ echo function
+			decompressor, err := New(context.Background(), next, decompressorConfig, "traefikTest3")
+			require.NoError(b, err)
+
+			server, client := net.Pipe()
+
+			go func() {
+				// Pipeline is now server ⇌ client ⇌ decompressor ⇌ echo function
+				decompressor.ServeTCP(&contextWriteCloser{client, addr{"10.10.10.10"}})
+			}()
+
+			// Read the decompressed data from the server. The data is originating from echo function -> decompressor(decompresses data) -> client -> server
+			read, err := io.ReadAll(server)
+			require.NoError(b, err)
+
+			assert.Equal(b, message, string(read))
+
+			err = server.Close()
+			require.NoError(b, err)
+			connectionWg.Done()
+		}()
+	}
+
+	connectionWg.Wait()
 }
 
 type contextWriteCloser struct {
