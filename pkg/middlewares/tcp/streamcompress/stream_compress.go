@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/klauspost/compress/zstd"
 	"io/ioutil"
 
 	"github.com/traefik/traefik/v3/pkg/config/dynamic"
@@ -21,7 +22,8 @@ type streamCompress struct {
 	algorithm string
 	name      string
 	dict      []byte
-	level     int
+	level     zstd.EncoderLevel
+	upstream  bool
 }
 
 // New builds a new TCP StreamCompress
@@ -36,11 +38,17 @@ func New(ctx context.Context, next tcp.Handler, config dynamic.TCPStreamCompress
 		return nil, errors.New(fmt.Sprintf("unknown compression algorithm %s", config.Algorithm))
 	}
 
+	found, level := zstd.EncoderLevelFromString(config.Level)
+	if !found && config.Level != "" {
+		return nil, errors.New(fmt.Sprintf("unknown compression level %s", config.Level))
+	}
+
 	s := &streamCompress{
 		algorithm: config.Algorithm,
 		next:      next,
 		name:      name,
-		level:     config.Level,
+		level:     level,
+		upstream:  config.Upstream,
 	}
 	if config.Dictionary != "" {
 		var err error
@@ -56,28 +64,13 @@ func New(ctx context.Context, next tcp.Handler, config dynamic.TCPStreamCompress
 }
 
 func (s *streamCompress) ServeTCP(conn tcp.WriteCloser) {
-	/*ctx := middlewares.GetLoggerCtx(context.Background(), s.name, typeName)
-	logger := log.FromContext(ctx)
+	// Wrap the connection with a compression algorithm
 
-	addr := conn.RemoteAddr().String()
-
-	err := s.whiteLister.IsAuthorized(addr)
-	if err != nil {
-		logger.Errorf("Connection from %s rejected: %v", addr, err)
-		conn.Close()
-		return
+	if s.upstream {
+		conn = NewZStdDecompressor(conn, s.level, s.dict)
+	} else {
+		conn = NewZStdCompressor(conn, s.level, s.dict)
 	}
-
-	logger.Debugf("Connection from %s accepted", addr)
-	*/
-
-	// Wapper the connection with a compression algorithm
-
-	// For Testing, wrapper with compress + decompress to show that all aspects work correctly. IE it should be plain in and plain out
-	conn = NewZStdCompressor(conn, s.level, s.dict)
-	conn = NewZStdDecompressor(conn, s.level, s.dict)
-	conn = NewZStdCompressor(conn, s.level, s.dict)
-	conn = NewZStdDecompressor(conn, s.level, s.dict)
 
 	s.next.ServeTCP(conn)
 }
