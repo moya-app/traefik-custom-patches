@@ -9,6 +9,7 @@ import (
 	"github.com/traefik/traefik/v3/pkg/tcp"
 	"io"
 	"net"
+	"runtime"
 	"sync"
 	"testing"
 	"time"
@@ -209,17 +210,22 @@ func TestStreamCompress_ServeTCPDecompression(t *testing.T) {
 
 func BenchmarkStreamCompress(b *testing.B) {
 	numberOfConnections := 1000
+	dataSize := 50 * 1024 // 50 KB
+	data := make([]byte, dataSize)
+	for i := range data {
+		data[i] = byte(i % 256)
+	}
+
 	compressor, err := zstd.NewWriter(nil)
 	require.NoError(b, err)
 
-	compressedMessage := compressor.EncodeAll([]byte(message), nil)
-	assert.NotEqual(b, []byte(message), compressedMessage)
+	compressedMessage := compressor.EncodeAll(data, nil)
+	assert.NotEqual(b, data, compressedMessage)
 
 	err = compressor.Close()
 	require.NoError(b, err)
 
 	next := tcp.HandlerFunc(func(conn tcp.WriteCloser) {
-		// will write compressed data to decompressor(decompresses data) -> client -> server.
 		write, err := conn.Write(compressedMessage)
 		require.NoError(b, err)
 		assert.Equal(b, len(compressedMessage), write)
@@ -237,33 +243,51 @@ func BenchmarkStreamCompress(b *testing.B) {
 	}
 
 	connectionWg := sync.WaitGroup{}
+	startMem := new(runtime.MemStats)
+	runtime.ReadMemStats(startMem)
+	startTime := time.Now()
+
+	halfwayContinueWg := sync.WaitGroup{}
+	halfwayContinueWg.Add(1)
+	halfwayReadyWg := sync.WaitGroup{}
+
 	for i := 0; i < numberOfConnections; i++ {
 		connectionWg.Add(1)
+		halfwayReadyWg.Add(1)
 		go func() {
-			// Pipeline is now decompressor ⇌ echo function
+			defer connectionWg.Done()
 			decompressor, err := New(context.Background(), next, decompressorConfig, "traefikTest3")
 			require.NoError(b, err)
 
 			server, client := net.Pipe()
 
 			go func() {
-				// Pipeline is now server ⇌ client ⇌ decompressor ⇌ echo function
 				decompressor.ServeTCP(&contextWriteCloser{client, addr{"10.10.10.10"}})
 			}()
 
-			// Read the decompressed data from the server. The data is originating from echo function -> decompressor(decompresses data) -> client -> server
+			halfwayReadyWg.Done()
+			halfwayContinueWg.Wait()
+
 			read, err := io.ReadAll(server)
 			require.NoError(b, err)
 
-			assert.Equal(b, message, string(read))
+			assert.Equal(b, data, read)
 
 			err = server.Close()
 			require.NoError(b, err)
-			connectionWg.Done()
 		}()
 	}
 
+	halfwayReadyWg.Wait()
+	halfwayMem := new(runtime.MemStats)
+	runtime.ReadMemStats(halfwayMem)
+	halfwayContinueWg.Done()
+
 	connectionWg.Wait()
+	endTime := time.Now()
+
+	b.Logf("Time taken: %v", endTime.Sub(startTime))
+	b.Logf("Memory used: %v KB", (halfwayMem.Alloc-startMem.Alloc)/1024)
 }
 
 type contextWriteCloser struct {
