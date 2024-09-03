@@ -208,6 +208,84 @@ func TestStreamCompress_ServeTCPDecompression(t *testing.T) {
 	require.NoError(t, err)
 }
 
+func layeredCompressor(next tcp.Handler, layers int, config dynamic.TCPStreamCompress) tcp.Handler {
+	config.Upstream = true
+	for i := 0; i < (layers * 2); i++ {
+		next, _ = New(context.Background(), next, config, "traefikTest")
+		config.Upstream = !config.Upstream
+	}
+	return next
+}
+
+func BenchmarkLayeredStreamCompress(b *testing.B) {
+	numberOfLayers := 100
+	dataSize := 50 * 1024 // 50 KB
+	data := make([]byte, dataSize)
+	for i := range data {
+		data[i] = byte(i % 256)
+	}
+
+	next := tcp.HandlerFunc(func(conn tcp.WriteCloser) {
+		write, err := conn.Write(data)
+		require.NoError(b, err)
+		assert.Equal(b, len(data), write)
+
+		time.Sleep(100 * time.Millisecond)
+
+		err = conn.Close()
+		require.NoError(b, err)
+	})
+
+	config := dynamic.TCPStreamCompress{
+		Algorithm: "zstd",
+		Level:     "best",
+	}
+
+	connectionWg := sync.WaitGroup{}
+	startMem := new(runtime.MemStats)
+	runtime.ReadMemStats(startMem)
+	startTime := time.Now()
+
+	halfwayContinueWg := sync.WaitGroup{}
+	halfwayContinueWg.Add(1)
+	halfwayReadyWg := sync.WaitGroup{}
+
+	connectionWg.Add(1)
+	halfwayReadyWg.Add(1)
+	go func() {
+		defer connectionWg.Done()
+		layeredHandler := layeredCompressor(next, numberOfLayers, config)
+
+		server, client := net.Pipe()
+
+		go func() {
+			layeredHandler.ServeTCP(&contextWriteCloser{client, addr{"10.10.10.10"}})
+		}()
+
+		halfwayReadyWg.Done()
+		halfwayContinueWg.Wait()
+
+		read, err := io.ReadAll(server)
+		require.NoError(b, err)
+
+		assert.Equal(b, data, read)
+
+		err = server.Close()
+		require.NoError(b, err)
+	}()
+
+	halfwayReadyWg.Wait()
+	halfwayMem := new(runtime.MemStats)
+	runtime.ReadMemStats(halfwayMem)
+	halfwayContinueWg.Done()
+
+	connectionWg.Wait()
+	endTime := time.Now()
+
+	b.Logf("Time taken: %v", endTime.Sub(startTime))
+	b.Logf("Memory used: %v KB", (halfwayMem.Alloc-startMem.Alloc)/1024)
+}
+
 func BenchmarkStreamCompress(b *testing.B) {
 	numberOfConnections := 1000
 	dataSize := 50 * 1024 // 50 KB
