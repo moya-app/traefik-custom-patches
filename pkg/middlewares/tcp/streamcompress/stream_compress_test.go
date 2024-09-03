@@ -9,8 +9,6 @@ import (
 	"github.com/traefik/traefik/v3/pkg/tcp"
 	"io"
 	"net"
-	"runtime"
-	"sync"
 	"testing"
 	"time"
 )
@@ -241,19 +239,11 @@ func BenchmarkLayeredStreamCompress(b *testing.B) {
 		Level:     "best",
 	}
 
-	connectionWg := sync.WaitGroup{}
-	startMem := new(runtime.MemStats)
-	runtime.ReadMemStats(startMem)
-	startTime := time.Now()
+	b.ReportAllocs()
+	b.ResetTimer()
+	b.StartTimer()
 
-	halfwayContinueWg := sync.WaitGroup{}
-	halfwayContinueWg.Add(1)
-	halfwayReadyWg := sync.WaitGroup{}
-
-	connectionWg.Add(1)
-	halfwayReadyWg.Add(1)
-	go func() {
-		defer connectionWg.Done()
+	for i := 0; i < b.N; i++ {
 		layeredHandler := layeredCompressor(next, numberOfLayers, config)
 
 		server, client := net.Pipe()
@@ -262,9 +252,6 @@ func BenchmarkLayeredStreamCompress(b *testing.B) {
 			layeredHandler.ServeTCP(&contextWriteCloser{client, addr{"10.10.10.10"}})
 		}()
 
-		halfwayReadyWg.Done()
-		halfwayContinueWg.Wait()
-
 		read, err := io.ReadAll(server)
 		require.NoError(b, err)
 
@@ -272,22 +259,17 @@ func BenchmarkLayeredStreamCompress(b *testing.B) {
 
 		err = server.Close()
 		require.NoError(b, err)
-	}()
+	}
 
-	halfwayReadyWg.Wait()
-	halfwayMem := new(runtime.MemStats)
-	runtime.ReadMemStats(halfwayMem)
-	halfwayContinueWg.Done()
-
-	connectionWg.Wait()
-	endTime := time.Now()
-
-	b.Logf("Time taken: %v", endTime.Sub(startTime))
-	b.Logf("Memory used: %v KB", (halfwayMem.Alloc-startMem.Alloc)/1024)
+	b.StopTimer()
 }
 
 func BenchmarkStreamCompress(b *testing.B) {
-	numberOfConnections := 1000
+	const defaultIterations = 10000
+	if b.N == 1 { // Check if b.N is the default value set by the framework
+		b.N = defaultIterations
+	}
+
 	dataSize := 50 * 1024 // 50 KB
 	data := make([]byte, dataSize)
 	for i := range data {
@@ -320,20 +302,12 @@ func BenchmarkStreamCompress(b *testing.B) {
 		Upstream:  false,
 	}
 
-	connectionWg := sync.WaitGroup{}
-	startMem := new(runtime.MemStats)
-	runtime.ReadMemStats(startMem)
-	startTime := time.Now()
+	b.ReportAllocs()
+	b.ResetTimer()
+	b.StartTimer()
 
-	halfwayContinueWg := sync.WaitGroup{}
-	halfwayContinueWg.Add(1)
-	halfwayReadyWg := sync.WaitGroup{}
-
-	for i := 0; i < numberOfConnections; i++ {
-		connectionWg.Add(1)
-		halfwayReadyWg.Add(1)
-		go func() {
-			defer connectionWg.Done()
+	b.RunParallel(func(pb *testing.PB) {
+		for pb.Next() {
 			decompressor, err := New(context.Background(), next, decompressorConfig, "traefikTest3")
 			require.NoError(b, err)
 
@@ -343,9 +317,6 @@ func BenchmarkStreamCompress(b *testing.B) {
 				decompressor.ServeTCP(&contextWriteCloser{client, addr{"10.10.10.10"}})
 			}()
 
-			halfwayReadyWg.Done()
-			halfwayContinueWg.Wait()
-
 			read, err := io.ReadAll(server)
 			require.NoError(b, err)
 
@@ -353,19 +324,10 @@ func BenchmarkStreamCompress(b *testing.B) {
 
 			err = server.Close()
 			require.NoError(b, err)
-		}()
-	}
+		}
+	})
 
-	halfwayReadyWg.Wait()
-	halfwayMem := new(runtime.MemStats)
-	runtime.ReadMemStats(halfwayMem)
-	halfwayContinueWg.Done()
-
-	connectionWg.Wait()
-	endTime := time.Now()
-
-	b.Logf("Time taken: %v", endTime.Sub(startTime))
-	b.Logf("Memory used: %v KB", (halfwayMem.Alloc-startMem.Alloc)/1024)
+	b.StopTimer()
 }
 
 type contextWriteCloser struct {
