@@ -64,7 +64,7 @@ func (z *zstdDecompressor) Write(p []byte) (n int, err error) {
 }
 
 func (z *zstdDecompressor) Close() error {
-	z.WriteCloser.SetDeadline(time.Now().Add(time.Millisecond))
+	z.WriteCloser.SetDeadline(time.Now().Add(10 * time.Millisecond))
 	defer z.mu.Unlock()
 	defer z.muW.Unlock()
 	z.mu.Lock()
@@ -79,7 +79,7 @@ func (z *zstdDecompressor) Close() error {
 	return err
 }
 func (z *zstdDecompressor) CloseWrite() error {
-	z.WriteCloser.SetWriteDeadline(time.Now().Add(time.Millisecond))
+	z.WriteCloser.SetWriteDeadline(time.Now().Add(10 * time.Millisecond))
 	defer z.muW.Unlock()
 	z.muW.Lock()
 
