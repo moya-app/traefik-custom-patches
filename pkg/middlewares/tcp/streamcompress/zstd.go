@@ -8,6 +8,7 @@ import (
 	"github.com/traefik/traefik/v3/pkg/tcp"
 	"io"
 	"sync"
+	"time"
 )
 
 // Take compressed data from upstream and send it plain to backend
@@ -16,6 +17,9 @@ type zstdDecompressor struct {
 
 	reader *zstd.Decoder
 	writer *zstd.Encoder
+
+	mu  sync.Mutex
+	muW sync.Mutex
 }
 
 func NewZStdDecompressor(conn tcp.WriteCloser, level zstd.EncoderLevel, dict []byte) tcp.WriteCloser {
@@ -43,9 +47,13 @@ func NewZStdDecompressor(conn tcp.WriteCloser, level zstd.EncoderLevel, dict []b
 	return z
 }
 func (z *zstdDecompressor) Read(p []byte) (n int, err error) {
+	defer z.mu.Unlock()
+	z.mu.Lock()
 	return z.reader.Read(p)
 }
 func (z *zstdDecompressor) Write(p []byte) (n int, err error) {
+	defer z.muW.Unlock()
+	z.muW.Lock()
 	n, err = z.writer.Write(p)
 	// Send the zstd flush block to upstream
 	err = z.writer.Flush()
@@ -56,6 +64,12 @@ func (z *zstdDecompressor) Write(p []byte) (n int, err error) {
 }
 
 func (z *zstdDecompressor) Close() error {
+	z.WriteCloser.SetDeadline(time.Now().Add(time.Millisecond))
+	defer z.mu.Unlock()
+	defer z.muW.Unlock()
+	z.mu.Lock()
+	z.muW.Lock()
+
 	writerErr := z.writer.Close()
 	defer z.reader.Close()
 	err := z.WriteCloser.Close()
@@ -65,6 +79,10 @@ func (z *zstdDecompressor) Close() error {
 	return err
 }
 func (z *zstdDecompressor) CloseWrite() error {
+	z.WriteCloser.SetWriteDeadline(time.Now().Add(time.Millisecond))
+	defer z.muW.Unlock()
+	z.muW.Lock()
+
 	writerErr := z.writer.Close()
 	err := z.WriteCloser.CloseWrite()
 	if writerErr != nil && err == nil {
