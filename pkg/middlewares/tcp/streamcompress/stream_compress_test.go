@@ -208,8 +208,9 @@ func TestStreamCompress_ServeTCPDecompression(t *testing.T) {
 
 func layeredCompressor(next tcp.Handler, layers int, config dynamic.TCPStreamCompress) tcp.Handler {
 	config.Upstream = true
+	ctx := context.Background()
 	for i := 0; i < (layers * 2); i++ {
-		next, _ = New(context.Background(), next, config, "traefikTest")
+		next, _ = New(ctx, next, config, "traefikTest")
 		config.Upstream = !config.Upstream
 	}
 	return next
@@ -228,7 +229,7 @@ func BenchmarkLayeredStreamCompress(b *testing.B) {
 		require.NoError(b, err)
 		assert.Equal(b, len(data), write)
 
-		time.Sleep(100 * time.Millisecond)
+		time.Sleep(time.Duration(numberOfLayers) * time.Millisecond)
 
 		err = conn.Close()
 		require.NoError(b, err)
