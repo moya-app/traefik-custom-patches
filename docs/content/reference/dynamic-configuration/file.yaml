@@ -89,6 +89,7 @@ http:
     Service03:
       mirroring:
         service: foobar
+        mirrorBody: true
         maxBodySize: 42
         mirrors:
           - name: foobar
@@ -152,6 +153,9 @@ http:
           - foobar
           - foobar
         minResponseBodyBytes: 42
+        encodings:
+          - foobar
+          - foobar
         defaultEncoding: foobar
     Middleware07:
       contentType:
@@ -192,6 +196,7 @@ http:
         addAuthCookiesToResponse:
           - foobar
           - foobar
+        headerField: foobar
     Middleware11:
       grpcWeb:
         allowOrigins:

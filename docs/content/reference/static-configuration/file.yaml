@@ -96,6 +96,8 @@ providers:
     useBindPortIP: true
     watch: true
     defaultRule: foobar
+    username: foobar
+    password: foobar
     endpoint: foobar
     tls:
       ca: foobar
@@ -111,6 +113,8 @@ providers:
     useBindPortIP: true
     watch: true
     defaultRule: foobar
+    username: foobar
+    password: foobar
     endpoint: foobar
     tls:
       ca: foobar
@@ -479,6 +483,11 @@ certificatesResolvers:
         kid: foobar
         hmacEncoded: foobar
       certificatesDuration: 42
+      caCertificates:
+        - foobar
+        - foobar
+      caSystemCertPool: true
+      caServerName: foobar
       dnsChallenge:
         provider: foobar
         delayBeforeCheck: 42s
@@ -501,6 +510,11 @@ certificatesResolvers:
         kid: foobar
         hmacEncoded: foobar
       certificatesDuration: 42
+      caCertificates:
+        - foobar
+        - foobar
+      caSystemCertPool: true
+      caServerName: foobar
       dnsChallenge:
         provider: foobar
         delayBeforeCheck: 42s

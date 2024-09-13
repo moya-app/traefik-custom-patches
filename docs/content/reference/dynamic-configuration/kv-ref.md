@@ -22,6 +22,8 @@ THIS FILE MUST NOT BE EDITED BY HAND
 | `traefik/http/middlewares/Middleware05/circuitBreaker/recoveryDuration` | `42s` |
 | `traefik/http/middlewares/Middleware05/circuitBreaker/responseCode` | `42` |
 | `traefik/http/middlewares/Middleware06/compress/defaultEncoding` | `foobar` |
+| `traefik/http/middlewares/Middleware06/compress/encodings/0` | `foobar` |
+| `traefik/http/middlewares/Middleware06/compress/encodings/1` | `foobar` |
 | `traefik/http/middlewares/Middleware06/compress/excludedContentTypes/0` | `foobar` |
 | `traefik/http/middlewares/Middleware06/compress/excludedContentTypes/1` | `foobar` |
 | `traefik/http/middlewares/Middleware06/compress/includedContentTypes/0` | `foobar` |
@@ -46,6 +48,7 @@ THIS FILE MUST NOT BE EDITED BY HAND
 | `traefik/http/middlewares/Middleware10/forwardAuth/authResponseHeaders/0` | `foobar` |
 | `traefik/http/middlewares/Middleware10/forwardAuth/authResponseHeaders/1` | `foobar` |
 | `traefik/http/middlewares/Middleware10/forwardAuth/authResponseHeadersRegex` | `foobar` |
+| `traefik/http/middlewares/Middleware10/forwardAuth/headerField` | `foobar` |
 | `traefik/http/middlewares/Middleware10/forwardAuth/tls/ca` | `foobar` |
 | `traefik/http/middlewares/Middleware10/forwardAuth/tls/caOptional` | `true` |
 | `traefik/http/middlewares/Middleware10/forwardAuth/tls/cert` | `foobar` |
@@ -261,6 +264,7 @@ THIS FILE MUST NOT BE EDITED BY HAND
 | `traefik/http/services/Service02/loadBalancer/sticky/cookie/secure` | `true` |
 | `traefik/http/services/Service03/mirroring/healthCheck` | `` |
 | `traefik/http/services/Service03/mirroring/maxBodySize` | `42` |
+| `traefik/http/services/Service03/mirroring/mirrorBody` | `true` |
 | `traefik/http/services/Service03/mirroring/mirrors/0/name` | `foobar` |
 | `traefik/http/services/Service03/mirroring/mirrors/0/percent` | `42` |
 | `traefik/http/services/Service03/mirroring/mirrors/1/name` | `foobar` |

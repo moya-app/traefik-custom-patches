@@ -57,8 +57,17 @@ Activate API directly on the entryPoint named traefik. (Default: ```false```)
 `--certificatesresolvers.<name>`:  
 Certificates resolvers configuration. (Default: ```false```)
 
+`--certificatesresolvers.<name>.acme.cacertificates`:  
+Specify the paths to PEM encoded CA Certificates that can be used to authenticate an ACME server with an HTTPS certificate not issued by a CA in the system-wide trusted root list.
+
 `--certificatesresolvers.<name>.acme.caserver`:  
 CA server to use. (Default: ```https://acme-v02.api.letsencrypt.org/directory```)
+
+`--certificatesresolvers.<name>.acme.caservername`:  
+Specify the CA server name that can be used to authenticate an ACME server with an HTTPS certificate not issued by a CA in the system-wide trusted root list.
+
+`--certificatesresolvers.<name>.acme.casystemcertpool`:  
+Define if the certificates pool must use a copy of the system cert pool. (Default: ```false```)
 
 `--certificatesresolvers.<name>.acme.certificatesduration`:  
 Certificates' duration in hours. (Default: ```2160```)
@@ -591,6 +600,9 @@ Client timeout for HTTP connections. (Default: ```0```)
 `--providers.docker.network`:  
 Default Docker network used.
 
+`--providers.docker.password`:  
+Password for Basic HTTP authentication.
+
 `--providers.docker.tls.ca`:  
 TLS CA
 
@@ -605,6 +617,9 @@ TLS key
 
 `--providers.docker.usebindportip`:  
 Use the ip address from the bound port, rather than from the inner network. (Default: ```false```)
+
+`--providers.docker.username`:  
+Username for Basic HTTP authentication.
 
 `--providers.docker.watch`:  
 Watch Docker events. (Default: ```true```)
@@ -975,6 +990,9 @@ Client timeout for HTTP connections. (Default: ```0```)
 `--providers.swarm.network`:  
 Default Docker network used.
 
+`--providers.swarm.password`:  
+Password for Basic HTTP authentication.
+
 `--providers.swarm.refreshseconds`:  
 Polling interval for swarm mode. (Default: ```15```)
 
@@ -992,6 +1010,9 @@ TLS key
 
 `--providers.swarm.usebindportip`:  
 Use the ip address from the bound port, rather than from the inner network. (Default: ```false```)
+
+`--providers.swarm.username`:  
+Username for Basic HTTP authentication.
 
 `--providers.swarm.watch`:  
 Watch Docker events. (Default: ```true```)

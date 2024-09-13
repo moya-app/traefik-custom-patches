@@ -57,8 +57,17 @@ Activate API directly on the entryPoint named traefik. (Default: ```false```)
 `TRAEFIK_CERTIFICATESRESOLVERS_<NAME>`:  
 Certificates resolvers configuration. (Default: ```false```)
 
+`TRAEFIK_CERTIFICATESRESOLVERS_<NAME>_ACME_CACERTIFICATES`:  
+Specify the paths to PEM encoded CA Certificates that can be used to authenticate an ACME server with an HTTPS certificate not issued by a CA in the system-wide trusted root list.
+
 `TRAEFIK_CERTIFICATESRESOLVERS_<NAME>_ACME_CASERVER`:  
 CA server to use. (Default: ```https://acme-v02.api.letsencrypt.org/directory```)
+
+`TRAEFIK_CERTIFICATESRESOLVERS_<NAME>_ACME_CASERVERNAME`:  
+Specify the CA server name that can be used to authenticate an ACME server with an HTTPS certificate not issued by a CA in the system-wide trusted root list.
+
+`TRAEFIK_CERTIFICATESRESOLVERS_<NAME>_ACME_CASYSTEMCERTPOOL`:  
+Define if the certificates pool must use a copy of the system cert pool. (Default: ```false```)
 
 `TRAEFIK_CERTIFICATESRESOLVERS_<NAME>_ACME_CERTIFICATESDURATION`:  
 Certificates' duration in hours. (Default: ```2160```)
@@ -591,6 +600,9 @@ Client timeout for HTTP connections. (Default: ```0```)
 `TRAEFIK_PROVIDERS_DOCKER_NETWORK`:  
 Default Docker network used.
 
+`TRAEFIK_PROVIDERS_DOCKER_PASSWORD`:  
+Password for Basic HTTP authentication.
+
 `TRAEFIK_PROVIDERS_DOCKER_TLS_CA`:  
 TLS CA
 
@@ -605,6 +617,9 @@ TLS key
 
 `TRAEFIK_PROVIDERS_DOCKER_USEBINDPORTIP`:  
 Use the ip address from the bound port, rather than from the inner network. (Default: ```false```)
+
+`TRAEFIK_PROVIDERS_DOCKER_USERNAME`:  
+Username for Basic HTTP authentication.
 
 `TRAEFIK_PROVIDERS_DOCKER_WATCH`:  
 Watch Docker events. (Default: ```true```)
@@ -975,6 +990,9 @@ Client timeout for HTTP connections. (Default: ```0```)
 `TRAEFIK_PROVIDERS_SWARM_NETWORK`:  
 Default Docker network used.
 
+`TRAEFIK_PROVIDERS_SWARM_PASSWORD`:  
+Password for Basic HTTP authentication.
+
 `TRAEFIK_PROVIDERS_SWARM_REFRESHSECONDS`:  
 Polling interval for swarm mode. (Default: ```15```)
 
@@ -992,6 +1010,9 @@ TLS key
 
 `TRAEFIK_PROVIDERS_SWARM_USEBINDPORTIP`:  
 Use the ip address from the bound port, rather than from the inner network. (Default: ```false```)
+
+`TRAEFIK_PROVIDERS_SWARM_USERNAME`:  
+Username for Basic HTTP authentication.
 
 `TRAEFIK_PROVIDERS_SWARM_WATCH`:  
 Watch Docker events. (Default: ```true```)

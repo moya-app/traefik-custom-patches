@@ -85,6 +85,8 @@
     useBindPortIP = true
     watch = true
     defaultRule = "foobar"
+    username = "foobar"
+    password = "foobar"
     endpoint = "foobar"
     httpClientTimeout = "42s"
     [providers.docker.tls]
@@ -100,6 +102,8 @@
     useBindPortIP = true
     watch = true
     defaultRule = "foobar"
+    username = "foobar"
+    password = "foobar"
     endpoint = "foobar"
     httpClientTimeout = "42s"
     refreshSeconds = "42s"
@@ -437,6 +441,9 @@
       storage = "foobar"
       keyType = "foobar"
       certificatesDuration = 42
+      caCertificates = ["foobar", "foobar"]
+      caSystemCertPool = true
+      caServerName = "foobar"
       [certificatesResolvers.CertificateResolver0.acme.eab]
         kid = "foobar"
         hmacEncoded = "foobar"
@@ -457,6 +464,9 @@
       storage = "foobar"
       keyType = "foobar"
       certificatesDuration = 42
+      caCertificates = ["foobar", "foobar"]
+      caSystemCertPool = true
+      caServerName = "foobar"
       [certificatesResolvers.CertificateResolver1.acme.eab]
         kid = "foobar"
         hmacEncoded = "foobar"
