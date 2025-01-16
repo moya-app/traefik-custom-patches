@@ -5,6 +5,7 @@ import (
 	"crypto/x509"
 	"errors"
 	"fmt"
+	"math/rand"
 	"net"
 	"sync"
 	"time"
@@ -44,16 +45,16 @@ type SpiffeX509Source interface {
 // DialerManager handles dialer for the reverse proxy.
 type DialerManager struct {
 	rtLock           sync.RWMutex
-	dialers          map[string]Dialer
-	dialersTLS       map[string]Dialer
+	dialers          map[string][]Dialer
+	dialersTLS       map[string][]Dialer
 	spiffeX509Source SpiffeX509Source
 }
 
 // NewDialerManager creates a new DialerManager.
 func NewDialerManager(spiffeX509Source SpiffeX509Source) *DialerManager {
 	return &DialerManager{
-		dialers:          make(map[string]Dialer),
-		dialersTLS:       make(map[string]Dialer),
+		dialers:          make(map[string][]Dialer),
+		dialersTLS:       make(map[string][]Dialer),
 		spiffeX509Source: spiffeX509Source,
 	}
 }
@@ -63,8 +64,8 @@ func (d *DialerManager) Update(configs map[string]*dynamic.TCPServersTransport) 
 	d.rtLock.Lock()
 	defer d.rtLock.Unlock()
 
-	d.dialers = make(map[string]Dialer)
-	d.dialersTLS = make(map[string]Dialer)
+	d.dialers = make(map[string][]Dialer)
+	d.dialersTLS = make(map[string][]Dialer)
 	for configName, config := range configs {
 		if err := d.createDialers(configName, config); err != nil {
 			log.Debug().
@@ -84,30 +85,24 @@ func (d *DialerManager) Get(name string, tls bool) (Dialer, error) {
 	d.rtLock.RLock()
 	defer d.rtLock.RUnlock()
 
+	var dialer []Dialer
 	if tls {
-		if rt, ok := d.dialersTLS[name]; ok {
-			return rt, nil
-		}
+		dialer = d.dialersTLS[name]
+	} else {
+		dialer = d.dialers[name]
+	}
 
+	if len(dialer) == 0 {
 		return nil, fmt.Errorf("TCP dialer not found %s", name)
 	}
 
-	if rt, ok := d.dialers[name]; ok {
-		return rt, nil
-	}
-
-	return nil, fmt.Errorf("TCP dialer not found %s", name)
+	return dialer[rand.Intn(len(dialer))], nil
 }
 
 // createDialers creates the dialers according to the TCPServersTransport configuration.
 func (d *DialerManager) createDialers(name string, cfg *dynamic.TCPServersTransport) error {
 	if cfg == nil {
 		return errors.New("no transport configuration given")
-	}
-
-	dialer := &net.Dialer{
-		Timeout:   time.Duration(cfg.DialTimeout),
-		KeepAlive: time.Duration(cfg.DialKeepAlive),
 	}
 
 	var tlsConfig *tls.Config
@@ -146,13 +141,31 @@ func (d *DialerManager) createDialers(name string, cfg *dynamic.TCPServersTransp
 		}
 	}
 
-	tlsDialer := &tls.Dialer{
-		NetDialer: dialer,
-		Config:    tlsConfig,
+	var sourceIPs []*net.TCPAddr
+
+	if len(cfg.SourceIPs) > 0 {
+		for _, sourceIP := range cfg.SourceIPs {
+			sourceIPs = append(sourceIPs, &net.TCPAddr{IP: net.ParseIP(sourceIP)})
+		}
+	} else {
+		sourceIPs = append(sourceIPs, nil)
 	}
 
-	d.dialers[name] = tcpDialer{dialer, time.Duration(cfg.TerminationDelay)}
-	d.dialersTLS[name] = tcpDialer{tlsDialer, time.Duration(cfg.TerminationDelay)}
+	for _, sourceIp := range sourceIPs {
+		dialer := &net.Dialer{
+			Timeout:   time.Duration(cfg.DialTimeout),
+			KeepAlive: time.Duration(cfg.DialKeepAlive),
+			LocalAddr: sourceIp,
+		}
+
+		tlsDialer := &tls.Dialer{
+			NetDialer: dialer,
+			Config:    tlsConfig,
+		}
+
+		d.dialers[name] = append(d.dialers[name], tcpDialer{dialer, time.Duration(cfg.TerminationDelay)})
+		d.dialersTLS[name] = append(d.dialersTLS[name], tcpDialer{tlsDialer, time.Duration(cfg.TerminationDelay)})
+	}
 
 	return nil
 }
