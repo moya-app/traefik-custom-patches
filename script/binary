@@ -27,8 +27,6 @@ else
     ARCH="arm64"
 fi
 
-mkdir -p ./dist
-
 # Build binaries
 # shellcheck disable=SC2086
 # shellcheck disable=SC2048
