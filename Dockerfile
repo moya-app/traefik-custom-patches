@@ -1,5 +1,5 @@
 # WEBUI
-FROM node:22.11 as webui
+FROM node:22.9-alpine3.20 as webui
 
 ENV WEBUI_DIR /src/webui
 RUN mkdir -p $WEBUI_DIR
@@ -30,10 +30,12 @@ COPY . /go/src/github.com/traefik/traefik
 RUN rm -rf /go/src/github.com/traefik/traefik/webui/static/
 COPY --from=webui /src/webui/static/ /go/src/github.com/traefik/traefik/webui/static/
 
+RUN ls -lsah
+
 RUN ./script/make.sh generate binary
 
 ## IMAGE
-FROM alpine:3.14
+FROM alpine:3.21
 
 RUN apk --no-cache --no-progress add bash curl ca-certificates tzdata \
     && update-ca-certificates \
