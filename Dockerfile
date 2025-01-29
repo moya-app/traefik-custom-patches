@@ -1,5 +1,5 @@
 # WEBUI
-FROM node:12.11 as webui
+FROM node:22.11 as webui
 
 ENV WEBUI_DIR /src/webui
 RUN mkdir -p $WEBUI_DIR
@@ -12,7 +12,7 @@ RUN yarn install
 RUN yarn build
 
 # BUILD
-FROM golang:1.21-alpine as gobuild
+FROM golang:1.23-alpine as gobuild
 
 RUN apk --no-cache --no-progress add git mercurial bash gcc musl-dev curl tar ca-certificates tzdata \
     && update-ca-certificates \
