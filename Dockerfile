@@ -1,6 +1,8 @@
 # WEBUI
 FROM node:22.9-alpine3.20 as webui
 
+ARG TARGETPLATFORM
+
 ENV WEBUI_DIR /src/webui
 RUN mkdir -p $WEBUI_DIR
 
@@ -30,9 +32,7 @@ COPY . /go/src/github.com/traefik/traefik
 RUN rm -rf /go/src/github.com/traefik/traefik/webui/static/
 COPY --from=webui /src/webui/static/ /go/src/github.com/traefik/traefik/webui/static/
 
-RUN ls -lsah
-
-RUN ./script/make.sh generate binary
+RUN ./script/make.sh binary
 
 ## IMAGE
 FROM alpine:3.21
@@ -41,7 +41,7 @@ RUN apk --no-cache --no-progress add bash curl ca-certificates tzdata \
     && update-ca-certificates \
     && rm -rf /var/cache/apk/*
 
-COPY --from=gobuild /go/src/github.com/traefik/traefik/dist/traefik /
+COPY --from=gobuild /go/src/github.com/traefik/traefik/dist/linux/${TARGETPLATFORM}/traefik /
 
 EXPOSE 80
 VOLUME ["/tmp"]
