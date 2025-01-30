@@ -9,7 +9,8 @@ if [ -n "${VERBOSE}" ]; then
 fi
 
 if [ -z "${VERSION}" ]; then
-    VERSION=$(git rev-parse HEAD)
+#    VERSION=$(git rev-parse HEAD)
+    VERSION="v3.3"
 fi
 
 if [ -z "$CODENAME" ]; then
@@ -34,4 +35,4 @@ CGO_ENABLED=0 GOGC=off GOOS=linux GOARCH=${ARCH} go build  -ldflags "-s -w \
     -X github.com/traefik/traefik/v3/pkg/version.Version=${VERSION} \
     -X github.com/traefik/traefik/v3/pkg/version.Codename=${CODENAME} \
     -X github.com/traefik/traefik/v3/pkg/version.BuildDate=${DATE}" \
-    -installsuffix nocgo -o "./dist/linux/${ARCH}/traefik" ./cmd/traefik
+    -installsuffix nocgo -o "./dist/linux/traefik" ./cmd/traefik
