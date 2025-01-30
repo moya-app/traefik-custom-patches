@@ -8,7 +8,7 @@ COPY ./webui/ $WEBUI_DIR/
 
 WORKDIR $WEBUI_DIR
 
-RUN yarn install
+RUN yarn install --network-timeout 600000
 RUN yarn build
 
 # BUILD
