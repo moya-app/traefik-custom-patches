@@ -1,7 +1,7 @@
 # WEBUI
-FROM node:22.9-alpine3.20 as webui
+FROM node:22.9-alpine3.20 AS webui
 
-ENV WEBUI_DIR /src/webui
+ENV WEBUI_DIR=/src/webui
 RUN mkdir -p $WEBUI_DIR
 
 COPY ./webui/ $WEBUI_DIR/
@@ -12,7 +12,7 @@ RUN yarn install
 RUN yarn build
 
 # BUILD
-FROM golang:1.23-alpine as gobuild
+FROM golang:1.23-alpine AS gobuild
 
 RUN apk --no-cache --no-progress add git mercurial bash gcc musl-dev curl tar ca-certificates tzdata \
     && update-ca-certificates \
@@ -30,7 +30,7 @@ COPY . /go/src/github.com/traefik/traefik
 RUN rm -rf /go/src/github.com/traefik/traefik/webui/static/
 COPY --from=webui /src/webui/static/ /go/src/github.com/traefik/traefik/webui/static/
 
-ENV TRAEFIK_VERSION=V3.3.0
+ENV TRAEFIK_VERSION=v3.3.0
 RUN mkdir -p ./dist && ./script/make.sh binary
 
 ## IMAGE
