@@ -1,5 +1,6 @@
+ARG DOCKER_HUB_URL
 # WEBUI
-FROM node:22.9-alpine3.20 AS webui
+FROM ${DOCKER_HUB_URL}library/node:22.9-alpine3.20 AS webui
 
 ENV WEBUI_DIR=/src/webui
 RUN mkdir -p $WEBUI_DIR
@@ -12,7 +13,7 @@ RUN yarn install --network-timeout 600000
 RUN yarn build
 
 # BUILD
-FROM --platform=$BUILDPLATFORM golang:1.23-alpine AS gobuild
+FROM --platform=$BUILDPLATFORM ${DOCKER_HUB_URL}library/golang:1.23-alpine AS gobuild
 
 # See https://docs.docker.com/build/building/multi-platform/#cross-compiling-a-go-application
 ARG TARGETOS
@@ -47,7 +48,7 @@ RUN mkdir -p dist && CGO_ENABLED=0 GOGC=off GOOS=${TARGETOS} GOARCH=${TARGETARCH
 
 
 ## IMAGE
-FROM alpine:3.21
+FROM ${DOCKER_HUB_URL}library/alpine:3.21
 
 RUN apk --no-cache --no-progress add bash curl ca-certificates tzdata \
     && update-ca-certificates \
