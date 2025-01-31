@@ -21,13 +21,6 @@ if [ -z "$DATE" ]; then
     DATE=$(date -u '+%Y-%m-%d_%I:%M:%S%p')
 fi
 
-# Set Arch
-if [[ "$(uname -m)" == "x86_64" ]]; then
-    ARCH="amd64"
-else
-    ARCH="arm64"
-fi
-
 # Build binaries
 # shellcheck disable=SC2086
 # shellcheck disable=SC2048
