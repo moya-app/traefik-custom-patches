@@ -2,6 +2,7 @@ package tracing
 
 import (
 	"compress/gzip"
+	"context"
 	"encoding/json"
 	"io"
 	"net/http"
@@ -73,6 +74,7 @@ func TestTracing(t *testing.T) {
 		desc                 string
 		propagators          string
 		headers              map[string]string
+		resourceAttributes   map[string]string
 		wantServiceHeadersFn func(t *testing.T, headers http.Header)
 		assertFn             func(*testing.T, string)
 	}{
@@ -83,6 +85,17 @@ func TestTracing(t *testing.T) {
 
 				assert.Regexp(t, `({"key":"service.name","value":{"stringValue":"traefik"}})`, trace)
 				assert.Regexp(t, `({"key":"service.version","value":{"stringValue":"dev"}})`, trace)
+			},
+		},
+		{
+			desc: "resource attributes must be propagated",
+			resourceAttributes: map[string]string{
+				"service.environment": "custom",
+			},
+			assertFn: func(t *testing.T, trace string) {
+				t.Helper()
+
+				assert.Regexp(t, `({"key":"service.environment","value":{"stringValue":"custom"}})`, trace)
 			},
 		},
 		{
@@ -328,8 +341,9 @@ func TestTracing(t *testing.T) {
 			})
 
 			tracingConfig := &static.Tracing{
-				ServiceName: "traefik",
-				SampleRate:  1.0,
+				ServiceName:        "traefik",
+				SampleRate:         1.0,
+				ResourceAttributes: test.resourceAttributes,
 				OTLP: &types.OTelTracing{
 					HTTP: &types.OTelHTTP{
 						Endpoint: collector.URL,
@@ -378,4 +392,26 @@ func TestTracing(t *testing.T) {
 			}
 		})
 	}
+}
+
+// TestTracerProvider ensures that Tracer returns a valid TracerProvider
+// when using the default Traefik Tracer and a custom one.
+func TestTracerProvider(t *testing.T) {
+	t.Parallel()
+
+	otlpConfig := &types.OTelTracing{}
+	otlpConfig.SetDefaults()
+
+	config := &static.Tracing{OTLP: otlpConfig}
+	tracer, closer, err := NewTracing(config)
+	if err != nil {
+		t.Fatal(err)
+	}
+	closer.Close()
+
+	_, span := tracer.Start(context.Background(), "test")
+	defer span.End()
+
+	span.TracerProvider().Tracer("github.com/traefik/traefik")
+	span.TracerProvider().Tracer("other")
 }
