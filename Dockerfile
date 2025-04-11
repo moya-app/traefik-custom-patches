@@ -26,8 +26,7 @@ RUN apk --no-cache --no-progress add git mercurial bash gcc musl-dev curl tar ca
 WORKDIR /go/src/github.com/traefik/traefik
 
 # Download go modules
-COPY go.mod .
-COPY go.sum .
+COPY go.mod go.sum .
 RUN GO111MODULE=on GOPROXY=https://proxy.golang.org go mod download
 
 COPY . /go/src/github.com/traefik/traefik
@@ -35,17 +34,14 @@ COPY . /go/src/github.com/traefik/traefik
 RUN rm -rf /go/src/github.com/traefik/traefik/webui/static/
 COPY --from=webui /src/webui/static/ /go/src/github.com/traefik/traefik/webui/static/
 
-ENV TRAEFIK_VERSION=v3.3.0
+ENV TRAEFIK_VERSION=v3.3.5
 ENV CODENAME=cheddar
-
-#RUN mkdir -p ./dist && ./script/make.sh binary
 
 RUN mkdir -p dist && CGO_ENABLED=0 GOGC=off GOOS=${TARGETOS} GOARCH=${TARGETARCH} go build -ldflags "-s -w \
     -X github.com/traefik/traefik/v3/pkg/version.Version=${TRAEFIK_VERSION} \
     -X github.com/traefik/traefik/v3/pkg/version.Codename=${CODENAME} \
     -X github.com/traefik/traefik/v3/pkg/version.BuildDate=$(date -u '+%Y-%m-%d_%I:%M:%S%p')" \
     -installsuffix nocgo -o "./dist/linux/traefik" ./cmd/traefik
-
 
 ## IMAGE
 FROM ${DOCKER_HUB_URL}library/alpine:3.21
