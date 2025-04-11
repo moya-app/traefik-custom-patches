@@ -168,8 +168,14 @@ Key identifier from External CA.
 `--certificatesresolvers.<name>.acme.email`:  
 Email address used for registration.
 
+`--certificatesresolvers.<name>.acme.emailaddresses`:  
+CSR email addresses to use.
+
 `--certificatesresolvers.<name>.acme.httpchallenge`:  
 Activate HTTP-01 Challenge. (Default: ```false```)
+
+`--certificatesresolvers.<name>.acme.httpchallenge.delay`:  
+Delay between the creation of the challenge and the validation. (Default: ```0```)
 
 `--certificatesresolvers.<name>.acme.httpchallenge.entrypoint`:  
 HTTP challenge EntryPoint
@@ -179,6 +185,9 @@ KeyType used for generating certificate private key. Allow value 'EC256', 'EC384
 
 `--certificatesresolvers.<name>.acme.preferredchain`:  
 Preferred chain to use.
+
+`--certificatesresolvers.<name>.acme.profile`:  
+Certificate profile to use.
 
 `--certificatesresolvers.<name>.acme.storage`:  
 Storage to use. (Default: ```acme.json```)

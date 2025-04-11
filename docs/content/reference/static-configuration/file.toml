@@ -505,6 +505,8 @@
       email = "foobar"
       caServer = "foobar"
       preferredChain = "foobar"
+      profile = "foobar"
+      emailAddresses = ["foobar", "foobar"]
       storage = "foobar"
       keyType = "foobar"
       certificatesDuration = 42
@@ -526,6 +528,7 @@
           delayBeforeChecks = "42s"
       [certificatesResolvers.CertificateResolver0.acme.httpChallenge]
         entryPoint = "foobar"
+        delay = "42s"
       [certificatesResolvers.CertificateResolver0.acme.tlsChallenge]
     [certificatesResolvers.CertificateResolver0.tailscale]
   [certificatesResolvers.CertificateResolver1]
@@ -533,6 +536,8 @@
       email = "foobar"
       caServer = "foobar"
       preferredChain = "foobar"
+      profile = "foobar"
+      emailAddresses = ["foobar", "foobar"]
       storage = "foobar"
       keyType = "foobar"
       certificatesDuration = 42
@@ -554,6 +559,7 @@
           delayBeforeChecks = "42s"
       [certificatesResolvers.CertificateResolver1.acme.httpChallenge]
         entryPoint = "foobar"
+        delay = "42s"
       [certificatesResolvers.CertificateResolver1.acme.tlsChallenge]
     [certificatesResolvers.CertificateResolver1.tailscale]
 

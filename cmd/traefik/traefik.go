@@ -12,7 +12,6 @@ import (
 	"os"
 	"os/signal"
 	"slices"
-	"sort"
 	"strings"
 	"syscall"
 	"time"
@@ -428,7 +427,7 @@ func getDefaultsEntrypoints(staticConfiguration *static.Configuration) []string 
 		}
 	}
 
-	sort.Strings(defaultEntryPoints)
+	slices.Sort(defaultEntryPoints)
 	return defaultEntryPoints
 }
 
@@ -569,7 +568,7 @@ func registerMetricClients(metricsConfig *types.Metrics) []metrics.Registry {
 }
 
 func appendCertMetric(gauge gokitmetrics.Gauge, certificate *x509.Certificate) {
-	sort.Strings(certificate.DNSNames)
+	slices.Sort(certificate.DNSNames)
 
 	labels := []string{
 		"cn", certificate.Subject.CommonName,

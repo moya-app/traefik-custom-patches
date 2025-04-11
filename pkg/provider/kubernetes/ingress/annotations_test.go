@@ -121,6 +121,7 @@ func Test_parseServiceConfig(t *testing.T) {
 				"traefik.ingress.kubernetes.io/service.sticky.cookie.name":     "foobar",
 				"traefik.ingress.kubernetes.io/service.sticky.cookie.secure":   "true",
 				"traefik.ingress.kubernetes.io/service.sticky.cookie.samesite": "none",
+				"traefik.ingress.kubernetes.io/service.sticky.cookie.domain":   "foo.com",
 				"traefik.ingress.kubernetes.io/service.sticky.cookie.path":     "foobar",
 			},
 			expected: &ServiceConfig{
@@ -131,7 +132,8 @@ func Test_parseServiceConfig(t *testing.T) {
 							Secure:   true,
 							HTTPOnly: true,
 							SameSite: "none",
-							Path:     String("foobar"),
+							Domain:   "foo.com",
+							Path:     pointer("foobar"),
 						},
 					},
 					ServersScheme:    "protocol",
@@ -150,7 +152,7 @@ func Test_parseServiceConfig(t *testing.T) {
 				Service: &ServiceIng{
 					Sticky: &dynamic.Sticky{
 						Cookie: &dynamic.Cookie{
-							Path: String("/"),
+							Path: pointer("/"),
 						},
 					},
 					PassHostHeader: pointer(true),

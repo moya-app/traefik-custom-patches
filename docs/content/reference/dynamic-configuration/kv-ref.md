@@ -40,6 +40,8 @@ THIS FILE MUST NOT BE EDITED BY HAND
 | `traefik/http/middlewares/Middleware09/errors/service` | `foobar` |
 | `traefik/http/middlewares/Middleware09/errors/status/0` | `foobar` |
 | `traefik/http/middlewares/Middleware09/errors/status/1` | `foobar` |
+| `traefik/http/middlewares/Middleware09/errors/statusRewrites/name0` | `42` |
+| `traefik/http/middlewares/Middleware09/errors/statusRewrites/name1` | `42` |
 | `traefik/http/middlewares/Middleware10/forwardAuth/addAuthCookiesToResponse/0` | `foobar` |
 | `traefik/http/middlewares/Middleware10/forwardAuth/addAuthCookiesToResponse/1` | `foobar` |
 | `traefik/http/middlewares/Middleware10/forwardAuth/address` | `foobar` |
@@ -52,6 +54,7 @@ THIS FILE MUST NOT BE EDITED BY HAND
 | `traefik/http/middlewares/Middleware10/forwardAuth/headerField` | `foobar` |
 | `traefik/http/middlewares/Middleware10/forwardAuth/maxBodySize` | `42` |
 | `traefik/http/middlewares/Middleware10/forwardAuth/preserveLocationHeader` | `true` |
+| `traefik/http/middlewares/Middleware10/forwardAuth/preserveRequestMethod` | `true` |
 | `traefik/http/middlewares/Middleware10/forwardAuth/tls/ca` | `foobar` |
 | `traefik/http/middlewares/Middleware10/forwardAuth/tls/caOptional` | `true` |
 | `traefik/http/middlewares/Middleware10/forwardAuth/tls/cert` | `foobar` |
@@ -150,6 +153,21 @@ THIS FILE MUST NOT BE EDITED BY HAND
 | `traefik/http/middlewares/Middleware18/rateLimit/average` | `42` |
 | `traefik/http/middlewares/Middleware18/rateLimit/burst` | `42` |
 | `traefik/http/middlewares/Middleware18/rateLimit/period` | `42s` |
+| `traefik/http/middlewares/Middleware18/rateLimit/redis/db` | `42` |
+| `traefik/http/middlewares/Middleware18/rateLimit/redis/dialTimeout` | `42s` |
+| `traefik/http/middlewares/Middleware18/rateLimit/redis/endpoints/0` | `foobar` |
+| `traefik/http/middlewares/Middleware18/rateLimit/redis/endpoints/1` | `foobar` |
+| `traefik/http/middlewares/Middleware18/rateLimit/redis/maxActiveConns` | `42` |
+| `traefik/http/middlewares/Middleware18/rateLimit/redis/minIdleConns` | `42` |
+| `traefik/http/middlewares/Middleware18/rateLimit/redis/password` | `foobar` |
+| `traefik/http/middlewares/Middleware18/rateLimit/redis/poolSize` | `42` |
+| `traefik/http/middlewares/Middleware18/rateLimit/redis/readTimeout` | `42s` |
+| `traefik/http/middlewares/Middleware18/rateLimit/redis/tls/ca` | `foobar` |
+| `traefik/http/middlewares/Middleware18/rateLimit/redis/tls/cert` | `foobar` |
+| `traefik/http/middlewares/Middleware18/rateLimit/redis/tls/insecureSkipVerify` | `true` |
+| `traefik/http/middlewares/Middleware18/rateLimit/redis/tls/key` | `foobar` |
+| `traefik/http/middlewares/Middleware18/rateLimit/redis/username` | `foobar` |
+| `traefik/http/middlewares/Middleware18/rateLimit/redis/writeTimeout` | `42s` |
 | `traefik/http/middlewares/Middleware18/rateLimit/sourceCriterion/ipStrategy/depth` | `42` |
 | `traefik/http/middlewares/Middleware18/rateLimit/sourceCriterion/ipStrategy/excludedIPs/0` | `foobar` |
 | `traefik/http/middlewares/Middleware18/rateLimit/sourceCriterion/ipStrategy/excludedIPs/1` | `foobar` |
@@ -263,6 +281,7 @@ THIS FILE MUST NOT BE EDITED BY HAND
 | `traefik/http/services/Service02/loadBalancer/healthCheck/scheme` | `foobar` |
 | `traefik/http/services/Service02/loadBalancer/healthCheck/status` | `42` |
 | `traefik/http/services/Service02/loadBalancer/healthCheck/timeout` | `42s` |
+| `traefik/http/services/Service02/loadBalancer/healthCheck/unhealthyInterval` | `42s` |
 | `traefik/http/services/Service02/loadBalancer/passHostHeader` | `true` |
 | `traefik/http/services/Service02/loadBalancer/responseForwarding/flushInterval` | `42s` |
 | `traefik/http/services/Service02/loadBalancer/servers/0/preservePath` | `true` |
@@ -272,12 +291,14 @@ THIS FILE MUST NOT BE EDITED BY HAND
 | `traefik/http/services/Service02/loadBalancer/servers/1/url` | `foobar` |
 | `traefik/http/services/Service02/loadBalancer/servers/1/weight` | `42` |
 | `traefik/http/services/Service02/loadBalancer/serversTransport` | `foobar` |
+| `traefik/http/services/Service02/loadBalancer/sticky/cookie/domain` | `foobar` |
 | `traefik/http/services/Service02/loadBalancer/sticky/cookie/httpOnly` | `true` |
 | `traefik/http/services/Service02/loadBalancer/sticky/cookie/maxAge` | `42` |
 | `traefik/http/services/Service02/loadBalancer/sticky/cookie/name` | `foobar` |
 | `traefik/http/services/Service02/loadBalancer/sticky/cookie/path` | `foobar` |
 | `traefik/http/services/Service02/loadBalancer/sticky/cookie/sameSite` | `foobar` |
 | `traefik/http/services/Service02/loadBalancer/sticky/cookie/secure` | `true` |
+| `traefik/http/services/Service02/loadBalancer/strategy` | `foobar` |
 | `traefik/http/services/Service03/mirroring/healthCheck` | `` |
 | `traefik/http/services/Service03/mirroring/maxBodySize` | `42` |
 | `traefik/http/services/Service03/mirroring/mirrorBody` | `true` |
@@ -291,6 +312,7 @@ THIS FILE MUST NOT BE EDITED BY HAND
 | `traefik/http/services/Service04/weighted/services/0/weight` | `42` |
 | `traefik/http/services/Service04/weighted/services/1/name` | `foobar` |
 | `traefik/http/services/Service04/weighted/services/1/weight` | `42` |
+| `traefik/http/services/Service04/weighted/sticky/cookie/domain` | `foobar` |
 | `traefik/http/services/Service04/weighted/sticky/cookie/httpOnly` | `true` |
 | `traefik/http/services/Service04/weighted/sticky/cookie/maxAge` | `42` |
 | `traefik/http/services/Service04/weighted/sticky/cookie/name` | `foobar` |
@@ -394,6 +416,7 @@ THIS FILE MUST NOT BE EDITED BY HAND
 | `traefik/tls/options/Options0/clientAuth/clientAuthType` | `foobar` |
 | `traefik/tls/options/Options0/curvePreferences/0` | `foobar` |
 | `traefik/tls/options/Options0/curvePreferences/1` | `foobar` |
+| `traefik/tls/options/Options0/disableSessionTickets` | `true` |
 | `traefik/tls/options/Options0/maxVersion` | `foobar` |
 | `traefik/tls/options/Options0/minVersion` | `foobar` |
 | `traefik/tls/options/Options0/preferServerCipherSuites` | `true` |
@@ -407,6 +430,7 @@ THIS FILE MUST NOT BE EDITED BY HAND
 | `traefik/tls/options/Options1/clientAuth/clientAuthType` | `foobar` |
 | `traefik/tls/options/Options1/curvePreferences/0` | `foobar` |
 | `traefik/tls/options/Options1/curvePreferences/1` | `foobar` |
+| `traefik/tls/options/Options1/disableSessionTickets` | `true` |
 | `traefik/tls/options/Options1/maxVersion` | `foobar` |
 | `traefik/tls/options/Options1/minVersion` | `foobar` |
 | `traefik/tls/options/Options1/preferServerCipherSuites` | `true` |

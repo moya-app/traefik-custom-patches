@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/rs/zerolog/log"
+	ptypes "github.com/traefik/paerser/types"
 	"github.com/traefik/traefik/v3/pkg/config/dynamic"
 	"github.com/traefik/traefik/v3/pkg/logs"
 	"github.com/traefik/traefik/v3/pkg/provider"
@@ -21,9 +22,8 @@ import (
 )
 
 const (
-	roundRobinStrategy = "RoundRobin"
-	httpsProtocol      = "https"
-	httpProtocol       = "http"
+	httpsProtocol = "https"
+	httpProtocol  = "http"
 )
 
 func (p *Provider) loadIngressRouteConfiguration(ctx context.Context, client Client, tlsConfigs map[string]*tls.CertAndStores) *dynamic.HTTPConfiguration {
@@ -260,6 +260,7 @@ func (c configBuilder) buildServicesLB(ctx context.Context, namespace string, tS
 				HTTPOnly: tService.Weighted.Sticky.Cookie.HTTPOnly,
 				SameSite: tService.Weighted.Sticky.Cookie.SameSite,
 				MaxAge:   tService.Weighted.Sticky.Cookie.MaxAge,
+				Domain:   tService.Weighted.Sticky.Cookie.Domain,
 			},
 		}
 		sticky.Cookie.SetDefaults()
@@ -321,13 +322,33 @@ func (c configBuilder) buildMirroring(ctx context.Context, tService *traefikv1al
 
 // buildServersLB creates the configuration for the load-balancer of servers defined by svc.
 func (c configBuilder) buildServersLB(namespace string, svc traefikv1alpha1.LoadBalancerSpec) (*dynamic.Service, error) {
+	lb := &dynamic.ServersLoadBalancer{}
+	lb.SetDefaults()
+
+	// This is required by the tests as the fake client does not apply default values.
+	// TODO: remove this when the fake client apply default values.
+	if svc.Strategy != "" {
+		switch svc.Strategy {
+		case dynamic.BalancerStrategyWRR, dynamic.BalancerStrategyP2C:
+			lb.Strategy = svc.Strategy
+
+		// Here we are just logging a warning as the default value is already applied.
+		case "RoundRobin":
+			log.Warn().
+				Str("namespace", namespace).
+				Str("service", svc.Name).
+				Msgf("RoundRobin strategy value is deprecated, please use %s value instead", dynamic.BalancerStrategyWRR)
+
+		default:
+			return nil, fmt.Errorf("load-balancer strategy %s is not supported", svc.Strategy)
+		}
+	}
+
 	servers, err := c.loadServers(namespace, svc)
 	if err != nil {
 		return nil, err
 	}
 
-	lb := &dynamic.ServersLoadBalancer{}
-	lb.SetDefaults()
 	lb.Servers = servers
 
 	if svc.HealthCheck != nil {
@@ -352,6 +373,17 @@ func (c configBuilder) buildServersLB(namespace string, svc traefikv1alpha1.Load
 			if err := lb.HealthCheck.Interval.Set(svc.HealthCheck.Interval.String()); err != nil {
 				return nil, err
 			}
+		}
+		// If the UnhealthyInterval option is not set, we use the Interval option value,
+		// to check the unhealthy targets as often as the healthy ones.
+		if svc.HealthCheck.UnhealthyInterval == nil {
+			lb.HealthCheck.UnhealthyInterval = &lb.HealthCheck.Interval
+		} else {
+			var unhealthyInterval ptypes.Duration
+			if err := unhealthyInterval.Set(svc.HealthCheck.UnhealthyInterval.String()); err != nil {
+				return nil, err
+			}
+			lb.HealthCheck.UnhealthyInterval = &unhealthyInterval
 		}
 		if svc.HealthCheck.Timeout != nil {
 			if err := lb.HealthCheck.Timeout.Set(svc.HealthCheck.Timeout.String()); err != nil {
@@ -382,6 +414,7 @@ func (c configBuilder) buildServersLB(namespace string, svc traefikv1alpha1.Load
 				HTTPOnly: svc.Sticky.Cookie.HTTPOnly,
 				SameSite: svc.Sticky.Cookie.SameSite,
 				MaxAge:   svc.Sticky.Cookie.MaxAge,
+				Domain:   svc.Sticky.Cookie.Domain,
 			},
 		}
 		lb.Sticky.Cookie.SetDefaults()
@@ -419,14 +452,6 @@ func (c configBuilder) makeServersTransportKey(parentNamespace string, serversTr
 }
 
 func (c configBuilder) loadServers(parentNamespace string, svc traefikv1alpha1.LoadBalancerSpec) ([]dynamic.Server, error) {
-	strategy := svc.Strategy
-	if strategy == "" {
-		strategy = roundRobinStrategy
-	}
-	if strategy != roundRobinStrategy {
-		return nil, fmt.Errorf("load balancing strategy %s is not supported", strategy)
-	}
-
 	namespace := namespaceOrFallback(svc, parentNamespace)
 
 	if !isNamespaceAllowed(c.allowCrossNamespace, parentNamespace, namespace) {

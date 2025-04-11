@@ -250,6 +250,34 @@ when using the `HTTP-01` challenge, `certificatesresolvers.myresolver.acme.httpc
 !!! info ""
     Redirection is fully compatible with the `HTTP-01` challenge.
 
+#### `Delay`
+
+The delay between the creation of the challenge and the validation.
+A value lower than or equal to zero means no delay.
+
+```yaml tab="File (YAML)"
+certificatesResolvers:
+  myresolver:
+    acme:
+      # ...
+      httpChallenge:
+        # ...
+        delay: 12
+```
+
+```toml tab="File (TOML)"
+[certificatesResolvers.myresolver.acme]
+  # ...
+  [certificatesResolvers.myresolver.acme.httpChallenge]
+    # ...
+    delay = 12
+```
+
+```bash tab="CLI"
+# ...
+--certificatesresolvers.myresolver.acme.httpchallenge.delay=12
+```
+
 ### `dnsChallenge`
 
 Use the `DNS-01` challenge to generate and renew ACME certificates by provisioning a DNS record.
@@ -829,6 +857,66 @@ certificatesResolvers:
 ```bash tab="CLI"
 # ...
 --certificatesresolvers.myresolver.acme.preferredChain=ISRG Root X1
+# ...
+```
+
+### `profile`
+
+_Optional, Default=""_
+
+Certificate profile to use.
+
+For more information, please check out the [Let's Encrypt blog post](https://letsencrypt.org/2025/01/09/acme-profiles/) about certificate profile selection.
+
+```yaml tab="File (YAML)"
+certificatesResolvers:
+  myresolver:
+    acme:
+      # ...
+      profile: tlsserver
+      # ...
+```
+
+```toml tab="File (TOML)"
+[certificatesResolvers.myresolver.acme]
+  # ...
+  profile = "tlsserver"
+  # ...
+```
+
+```bash tab="CLI"
+# ...
+--certificatesresolvers.myresolver.acme.profile=tlsserver
+# ...
+```
+
+### `emailAddresses`
+
+_Optional, Default=""_
+
+CSR email addresses to use.
+
+```yaml tab="File (YAML)"
+certificatesResolvers:
+  myresolver:
+    acme:
+      # ...
+      emailAddresses:
+        - foo@example.com
+        - bar@example.org
+      # ...
+```
+
+```toml tab="File (TOML)"
+[certificatesResolvers.myresolver.acme]
+  # ...
+  emailAddresses = ["foo@example.com", "bar@example.org"]
+  # ...
+```
+
+```bash tab="CLI"
+# ...
+--certificatesresolvers.myresolver.acme.emailaddresses=foo@example.com,bar@example.org
 # ...
 ```
 

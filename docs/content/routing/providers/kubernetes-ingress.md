@@ -130,7 +130,7 @@ which in turn will create the resulting routers, services, handlers, etc.
           serviceAccountName: traefik-ingress-controller
           containers:
             - name: traefik
-              image: traefik:v3.3
+              image: traefik:v3.4
               args:
                 - --entryPoints.web.address=:80
                 - --providers.kubernetesingress
@@ -230,6 +230,11 @@ which in turn will create the resulting routers, services, handlers, etc.
     ```
 
 ??? info "`traefik.ingress.kubernetes.io/router.rulesyntax`"
+
+    !!! warning
+
+        RuleSyntax option is deprecated and will be removed in the next major version.
+        Please do not use this field and rewrite the router rules to use the v3 syntax.
 
     See [rule syntax](../routers/index.md#rulesyntax) for more information.
 
@@ -389,6 +394,14 @@ which in turn will create the resulting routers, services, handlers, etc.
 
     ```yaml
     traefik.ingress.kubernetes.io/service.sticky.cookie.samesite: "none"
+    ```
+
+??? info "`traefik.ingress.kubernetes.io/service.sticky.cookie.domain`"
+
+    See [sticky sessions](../services/index.md#sticky-sessions) for more information.
+
+    ```yaml
+    traefik.ingress.kubernetes.io/service.sticky.cookie.domain: "foo.com"
     ```
 
 ??? info "`traefik.ingress.kubernetes.io/service.sticky.cookie.httponly`"
@@ -580,7 +593,7 @@ This way, any Ingress attached to this Entrypoint will have TLS termination by d
           serviceAccountName: traefik-ingress-controller
           containers:
             - name: traefik
-              image: traefik:v3.3
+              image: traefik:v3.4
               args:
                 - --entryPoints.websecure.address=:443
                 - --entryPoints.websecure.http.tls
@@ -773,7 +786,7 @@ For more options, please refer to the available [annotations](#on-ingress).
           serviceAccountName: traefik-ingress-controller
           containers:
             - name: traefik
-              image: traefik:v3.3
+              image: traefik:v3.4
               args:
                 - --entryPoints.websecure.address=:443
                 - --providers.kubernetesingress

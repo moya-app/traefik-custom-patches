@@ -732,7 +732,8 @@ func TestLoadIngressRouteTCPs(t *testing.T) {
 								},
 								ClientAuthType: "VerifyClientCertIfGiven",
 							},
-							SniStrict: true,
+							SniStrict:             true,
+							DisableSessionTickets: true,
 							ALPNProtocols: []string{
 								"h2",
 								"http/1.1",
@@ -1387,6 +1388,7 @@ func TestLoadIngressRouteTCPs(t *testing.T) {
 					Services: map[string]*dynamic.Service{
 						"default-whoami-ipv6-8080": {
 							LoadBalancer: &dynamic.ServersLoadBalancer{
+								Strategy: dynamic.BalancerStrategyWRR,
 								Servers: []dynamic.Server{
 									{
 										URL: "http://[2001:db8:85a3:8d3:1319:8a2e:370:7348]:8080",
@@ -1400,6 +1402,7 @@ func TestLoadIngressRouteTCPs(t *testing.T) {
 						},
 						"default-external-svc-with-ipv6-8080": {
 							LoadBalancer: &dynamic.ServersLoadBalancer{
+								Strategy: dynamic.BalancerStrategyWRR,
 								Servers: []dynamic.Server{
 									{
 										URL: "http://[2001:db8:85a3:8d3:1319:8a2e:370:7347]:8080",
@@ -1489,7 +1492,7 @@ func TestLoadIngressRouteTCPs(t *testing.T) {
 							TLS: &dynamic.TLSClientConfig{
 								ServerName:         "test",
 								InsecureSkipVerify: true,
-								RootCAs:            []types.FileOrContent{"TESTROOTCAS0", "TESTROOTCAS1", "TESTROOTCAS2", "TESTROOTCAS3", "TESTROOTCAS5", "TESTALLCERTS"},
+								RootCAs:            []types.FileOrContent{"TESTROOTCAS0", "TESTROOTCAS1", "TESTROOTCAS2", "TESTROOTCAS3", "TESTROOTCAS5", "TESTALLCERTS", "TESTROOTCASFROMCONFIGMAP", "TESTROOTCAS6"},
 								Certificates: tls.Certificates{
 									{CertFile: "TESTCERT1", KeyFile: "TESTKEY1"},
 									{CertFile: "TESTCERT2", KeyFile: "TESTKEY2"},
@@ -1743,6 +1746,7 @@ func TestLoadIngressRoutes(t *testing.T) {
 					Services: map[string]*dynamic.Service{
 						"default-test-route-6b204d94623b3df4370c": {
 							LoadBalancer: &dynamic.ServersLoadBalancer{
+								Strategy: dynamic.BalancerStrategyWRR,
 								Servers: []dynamic.Server{
 									{
 										URL: "http://10.10.0.1:80",
@@ -1815,6 +1819,86 @@ func TestLoadIngressRoutes(t *testing.T) {
 					Services: map[string]*dynamic.Service{
 						"default-test2-route-23c7f4c450289ee29016": {
 							LoadBalancer: &dynamic.ServersLoadBalancer{
+								Strategy: dynamic.BalancerStrategyWRR,
+								Servers: []dynamic.Server{
+									{
+										URL: "http://10.10.0.1:80",
+									},
+									{
+										URL: "http://10.10.0.2:80",
+									},
+								},
+								PassHostHeader: pointer(true),
+								ResponseForwarding: &dynamic.ResponseForwarding{
+									FlushInterval: ptypes.Duration(100 * time.Millisecond),
+								},
+							},
+						},
+					},
+					ServersTransports: map[string]*dynamic.ServersTransport{},
+				},
+				TLS: &dynamic.TLSConfiguration{},
+			},
+		},
+		{
+			desc:                "Simple Ingress Route with middleware ratelimit",
+			allowCrossNamespace: true,
+			paths:               []string{"services.yml", "with_ratelimit.yml"},
+			expected: &dynamic.Configuration{
+				UDP: &dynamic.UDPConfiguration{
+					Routers:  map[string]*dynamic.UDPRouter{},
+					Services: map[string]*dynamic.UDPService{},
+				},
+				TCP: &dynamic.TCPConfiguration{
+					Routers:           map[string]*dynamic.TCPRouter{},
+					Middlewares:       map[string]*dynamic.TCPMiddleware{},
+					Services:          map[string]*dynamic.TCPService{},
+					ServersTransports: map[string]*dynamic.TCPServersTransport{},
+				},
+				HTTP: &dynamic.HTTPConfiguration{
+					Routers: map[string]*dynamic.Router{
+						"default-test2-route-3c9bf014491ebdba74f7": {
+							EntryPoints: []string{"web"},
+							Service:     "default-test2-route-3c9bf014491ebdba74f7",
+							Rule:        "Host(`foo.com`) && PathPrefix(`/will-be-limited`)",
+							Priority:    12,
+							Middlewares: []string{"default-ratelimit"},
+						},
+					},
+					Middlewares: map[string]*dynamic.Middleware{
+						"default-ratelimit": {
+							RateLimit: &dynamic.RateLimit{
+								Average: 6,
+								Burst:   12,
+								Period:  ptypes.Duration(60 * time.Second),
+								SourceCriterion: &dynamic.SourceCriterion{
+									IPStrategy: &dynamic.IPStrategy{
+										ExcludedIPs: []string{"127.0.0.1/32", "192.168.1.7"},
+									},
+								},
+								Redis: &dynamic.Redis{
+									Endpoints: []string{"127.0.0.1:6379"},
+									Username:  "user",
+									Password:  "password",
+									TLS: &types.ClientTLS{
+										CA:   "-----BEGIN CERTIFICATE-----\n-----END CERTIFICATE-----",
+										Cert: "-----BEGIN CERTIFICATE-----\n-----END CERTIFICATE-----",
+										Key:  "-----BEGIN PRIVATE KEY-----\n-----END PRIVATE KEY-----",
+									},
+									DB:             0,
+									PoolSize:       42,
+									MaxActiveConns: 42,
+									ReadTimeout:    pointer(ptypes.Duration(42 * time.Second)),
+									WriteTimeout:   pointer(ptypes.Duration(42 * time.Second)),
+									DialTimeout:    pointer(ptypes.Duration(42 * time.Second)),
+								},
+							},
+						},
+					},
+					Services: map[string]*dynamic.Service{
+						"default-test2-route-3c9bf014491ebdba74f7": {
+							LoadBalancer: &dynamic.ServersLoadBalancer{
+								Strategy: dynamic.BalancerStrategyWRR,
 								Servers: []dynamic.Server{
 									{
 										URL: "http://10.10.0.1:80",
@@ -1870,6 +1954,7 @@ func TestLoadIngressRoutes(t *testing.T) {
 					Services: map[string]*dynamic.Service{
 						"default-test2-route-23c7f4c450289ee29016": {
 							LoadBalancer: &dynamic.ServersLoadBalancer{
+								Strategy: dynamic.BalancerStrategyWRR,
 								Servers: []dynamic.Server{
 									{
 										URL: "http://10.10.0.1:80",
@@ -1931,6 +2016,7 @@ func TestLoadIngressRoutes(t *testing.T) {
 					Services: map[string]*dynamic.Service{
 						"default-test2-route-23c7f4c450289ee29016": {
 							LoadBalancer: &dynamic.ServersLoadBalancer{
+								Strategy: dynamic.BalancerStrategyWRR,
 								Servers: []dynamic.Server{
 									{
 										URL: "http://10.10.0.1:80",
@@ -1983,6 +2069,7 @@ func TestLoadIngressRoutes(t *testing.T) {
 					Services: map[string]*dynamic.Service{
 						"default-test-route-6b204d94623b3df4370c": {
 							LoadBalancer: &dynamic.ServersLoadBalancer{
+								Strategy: dynamic.BalancerStrategyWRR,
 								Servers: []dynamic.Server{
 									{
 										URL: "http://10.10.0.1:80",
@@ -1999,6 +2086,7 @@ func TestLoadIngressRoutes(t *testing.T) {
 						},
 						"default-test-route-77c62dfe9517144aeeaa": {
 							LoadBalancer: &dynamic.ServersLoadBalancer{
+								Strategy: dynamic.BalancerStrategyWRR,
 								Servers: []dynamic.Server{
 									{
 										URL: "http://10.10.0.1:80",
@@ -2061,6 +2149,7 @@ func TestLoadIngressRoutes(t *testing.T) {
 						},
 						"default-whoami-80": {
 							LoadBalancer: &dynamic.ServersLoadBalancer{
+								Strategy: dynamic.BalancerStrategyWRR,
 								Servers: []dynamic.Server{
 									{
 										URL: "http://10.10.0.1:80",
@@ -2077,6 +2166,7 @@ func TestLoadIngressRoutes(t *testing.T) {
 						},
 						"default-whoami2-8080": {
 							LoadBalancer: &dynamic.ServersLoadBalancer{
+								Strategy: dynamic.BalancerStrategyWRR,
 								Servers: []dynamic.Server{
 									{
 										URL: "http://10.10.0.3:8080",
@@ -2134,6 +2224,7 @@ func TestLoadIngressRoutes(t *testing.T) {
 						},
 						"default-whoami5-8080": {
 							LoadBalancer: &dynamic.ServersLoadBalancer{
+								Strategy: dynamic.BalancerStrategyWRR,
 								Servers: []dynamic.Server{
 									{
 										URL: "http://10.10.0.3:8080",
@@ -2184,6 +2275,7 @@ func TestLoadIngressRoutes(t *testing.T) {
 						},
 						"default-whoami5-8080": {
 							LoadBalancer: &dynamic.ServersLoadBalancer{
+								Strategy: dynamic.BalancerStrategyWRR,
 								Servers: []dynamic.Server{
 									{
 										URL: "http://10.10.0.3:8080",
@@ -2259,6 +2351,7 @@ func TestLoadIngressRoutes(t *testing.T) {
 						},
 						"default-whoami4-80": {
 							LoadBalancer: &dynamic.ServersLoadBalancer{
+								Strategy: dynamic.BalancerStrategyWRR,
 								Servers: []dynamic.Server{
 									{
 										URL: "http://10.10.0.1:80",
@@ -2275,6 +2368,7 @@ func TestLoadIngressRoutes(t *testing.T) {
 						},
 						"default-whoami5-8080": {
 							LoadBalancer: &dynamic.ServersLoadBalancer{
+								Strategy: dynamic.BalancerStrategyWRR,
 								Servers: []dynamic.Server{
 									{
 										URL: "http://10.10.0.3:8080",
@@ -2305,6 +2399,7 @@ func TestLoadIngressRoutes(t *testing.T) {
 						},
 						"default-whoami6-80": {
 							LoadBalancer: &dynamic.ServersLoadBalancer{
+								Strategy: dynamic.BalancerStrategyWRR,
 								Servers: []dynamic.Server{
 									{
 										URL: "http://10.10.0.5:80",
@@ -2321,6 +2416,7 @@ func TestLoadIngressRoutes(t *testing.T) {
 						},
 						"default-whoami7-8080": {
 							LoadBalancer: &dynamic.ServersLoadBalancer{
+								Strategy: dynamic.BalancerStrategyWRR,
 								Servers: []dynamic.Server{
 									{
 										URL: "http://10.10.0.7:8080",
@@ -2392,6 +2488,7 @@ func TestLoadIngressRoutes(t *testing.T) {
 						},
 						"default-whoami5-8080": {
 							LoadBalancer: &dynamic.ServersLoadBalancer{
+								Strategy: dynamic.BalancerStrategyWRR,
 								Servers: []dynamic.Server{
 									{
 										URL: "http://10.10.0.3:8080",
@@ -2475,6 +2572,7 @@ func TestLoadIngressRoutes(t *testing.T) {
 						},
 						"default-whoami4-8080": {
 							LoadBalancer: &dynamic.ServersLoadBalancer{
+								Strategy: dynamic.BalancerStrategyWRR,
 								Servers: []dynamic.Server{
 									{
 										URL: "http://10.10.0.1:8080",
@@ -2491,6 +2589,7 @@ func TestLoadIngressRoutes(t *testing.T) {
 						},
 						"default-whoami5-8080": {
 							LoadBalancer: &dynamic.ServersLoadBalancer{
+								Strategy: dynamic.BalancerStrategyWRR,
 								Servers: []dynamic.Server{
 									{
 										URL: "http://10.10.0.3:8080",
@@ -2537,6 +2636,7 @@ func TestLoadIngressRoutes(t *testing.T) {
 					Services: map[string]*dynamic.Service{
 						"default-test-route-77c62dfe9517144aeeaa": {
 							LoadBalancer: &dynamic.ServersLoadBalancer{
+								Strategy: dynamic.BalancerStrategyWRR,
 								Servers: []dynamic.Server{
 									{
 										URL: "https://external.domain:443",
@@ -2547,10 +2647,11 @@ func TestLoadIngressRoutes(t *testing.T) {
 									FlushInterval: ptypes.Duration(100 * time.Millisecond),
 								},
 								HealthCheck: &dynamic.ServerHealthCheck{
-									Path:            "/health",
-									Timeout:         5000000000,
-									Interval:        15000000000,
-									FollowRedirects: pointer(true),
+									Path:              "/health",
+									Timeout:           5000000000,
+									Interval:          15000000000,
+									UnhealthyInterval: pointer(ptypes.Duration(15000000000)),
+									FollowRedirects:   pointer(true),
 								},
 							},
 						},
@@ -2601,6 +2702,7 @@ func TestLoadIngressRoutes(t *testing.T) {
 						},
 						"default-external-svc-443": {
 							LoadBalancer: &dynamic.ServersLoadBalancer{
+								Strategy: dynamic.BalancerStrategyWRR,
 								Servers: []dynamic.Server{
 									{
 										URL: "https://external.domain:443",
@@ -2611,15 +2713,17 @@ func TestLoadIngressRoutes(t *testing.T) {
 									FlushInterval: ptypes.Duration(100 * time.Millisecond),
 								},
 								HealthCheck: &dynamic.ServerHealthCheck{
-									Path:            "/health1",
-									Timeout:         5000000000,
-									Interval:        15000000000,
-									FollowRedirects: pointer(true),
+									Path:              "/health1",
+									Timeout:           5000000000,
+									Interval:          15000000000,
+									UnhealthyInterval: pointer(ptypes.Duration(15000000000)),
+									FollowRedirects:   pointer(true),
 								},
 							},
 						},
 						"default-external-svc-with-https-443": {
 							LoadBalancer: &dynamic.ServersLoadBalancer{
+								Strategy: dynamic.BalancerStrategyWRR,
 								Servers: []dynamic.Server{
 									{
 										URL: "https://external.domain:443",
@@ -2630,10 +2734,11 @@ func TestLoadIngressRoutes(t *testing.T) {
 									FlushInterval: ptypes.Duration(100 * time.Millisecond),
 								},
 								HealthCheck: &dynamic.ServerHealthCheck{
-									Path:            "/health2",
-									Timeout:         5000000000,
-									Interval:        20000000000,
-									FollowRedirects: pointer(true),
+									Path:              "/health2",
+									Timeout:           5000000000,
+									Interval:          20000000000,
+									UnhealthyInterval: pointer(ptypes.Duration(20000000000)),
+									FollowRedirects:   pointer(true),
 								},
 							},
 						},
@@ -2663,6 +2768,7 @@ func TestLoadIngressRoutes(t *testing.T) {
 					Services: map[string]*dynamic.Service{
 						"default-external-svc-443": {
 							LoadBalancer: &dynamic.ServersLoadBalancer{
+								Strategy: dynamic.BalancerStrategyWRR,
 								Servers: []dynamic.Server{
 									{
 										URL: "https://external.domain:443",
@@ -2673,10 +2779,11 @@ func TestLoadIngressRoutes(t *testing.T) {
 									FlushInterval: ptypes.Duration(100 * time.Millisecond),
 								},
 								HealthCheck: &dynamic.ServerHealthCheck{
-									Path:            "/health1",
-									Timeout:         5000000000,
-									Interval:        15000000000,
-									FollowRedirects: pointer(true),
+									Path:              "/health1",
+									Timeout:           5000000000,
+									Interval:          15000000000,
+									UnhealthyInterval: pointer(ptypes.Duration(15000000000)),
+									FollowRedirects:   pointer(true),
 								},
 							},
 						},
@@ -2741,6 +2848,7 @@ func TestLoadIngressRoutes(t *testing.T) {
 						},
 						"baz-whoami6-8080": {
 							LoadBalancer: &dynamic.ServersLoadBalancer{
+								Strategy: dynamic.BalancerStrategyWRR,
 								Servers: []dynamic.Server{
 									{
 										URL: "http://10.10.0.5:8080",
@@ -2779,6 +2887,7 @@ func TestLoadIngressRoutes(t *testing.T) {
 						},
 						"foo-whoami4-8080": {
 							LoadBalancer: &dynamic.ServersLoadBalancer{
+								Strategy: dynamic.BalancerStrategyWRR,
 								Servers: []dynamic.Server{
 									{
 										URL: "http://10.10.0.1:8080",
@@ -2805,6 +2914,7 @@ func TestLoadIngressRoutes(t *testing.T) {
 						},
 						"foo-whoami5-8080": {
 							LoadBalancer: &dynamic.ServersLoadBalancer{
+								Strategy: dynamic.BalancerStrategyWRR,
 								Servers: []dynamic.Server{
 									{
 										URL: "http://10.10.0.3:8080",
@@ -2911,6 +3021,7 @@ func TestLoadIngressRoutes(t *testing.T) {
 						},
 						"default-whoami4-8080": {
 							LoadBalancer: &dynamic.ServersLoadBalancer{
+								Strategy: dynamic.BalancerStrategyWRR,
 								Servers: []dynamic.Server{
 									{
 										URL: "http://10.10.0.1:8080",
@@ -2927,6 +3038,7 @@ func TestLoadIngressRoutes(t *testing.T) {
 						},
 						"default-whoami5-8080": {
 							LoadBalancer: &dynamic.ServersLoadBalancer{
+								Strategy: dynamic.BalancerStrategyWRR,
 								Servers: []dynamic.Server{
 									{
 										URL: "http://10.10.0.3:8080",
@@ -3002,6 +3114,7 @@ func TestLoadIngressRoutes(t *testing.T) {
 						},
 						"default-whoami4-8080": {
 							LoadBalancer: &dynamic.ServersLoadBalancer{
+								Strategy: dynamic.BalancerStrategyWRR,
 								Servers: []dynamic.Server{
 									{
 										URL: "http://10.10.0.1:8080",
@@ -3018,6 +3131,7 @@ func TestLoadIngressRoutes(t *testing.T) {
 						},
 						"default-whoami5-8080": {
 							LoadBalancer: &dynamic.ServersLoadBalancer{
+								Strategy: dynamic.BalancerStrategyWRR,
 								Servers: []dynamic.Server{
 									{
 										URL: "http://10.10.0.3:8080",
@@ -3079,6 +3193,7 @@ func TestLoadIngressRoutes(t *testing.T) {
 						},
 						"default-whoami-80": {
 							LoadBalancer: &dynamic.ServersLoadBalancer{
+								Strategy: dynamic.BalancerStrategyWRR,
 								Servers: []dynamic.Server{
 									{
 										URL: "http://10.10.0.1:80",
@@ -3095,6 +3210,7 @@ func TestLoadIngressRoutes(t *testing.T) {
 						},
 						"default-whoami2-8080": {
 							LoadBalancer: &dynamic.ServersLoadBalancer{
+								Strategy: dynamic.BalancerStrategyWRR,
 								Servers: []dynamic.Server{
 									{
 										URL: "http://10.10.0.3:8080",
@@ -3189,6 +3305,7 @@ func TestLoadIngressRoutes(t *testing.T) {
 					Services: map[string]*dynamic.Service{
 						"default-test-route-02719a68b11e915a4b23": {
 							LoadBalancer: &dynamic.ServersLoadBalancer{
+								Strategy: dynamic.BalancerStrategyWRR,
 								Servers: []dynamic.Server{
 									{
 										URL: "http://10.10.0.1:80",
@@ -3246,6 +3363,7 @@ func TestLoadIngressRoutes(t *testing.T) {
 					Services: map[string]*dynamic.Service{
 						"default-test-route-6b204d94623b3df4370c": {
 							LoadBalancer: &dynamic.ServersLoadBalancer{
+								Strategy: dynamic.BalancerStrategyWRR,
 								Servers: []dynamic.Server{
 									{
 										URL: "http://10.10.0.1:80",
@@ -3288,7 +3406,8 @@ func TestLoadIngressRoutes(t *testing.T) {
 								},
 								ClientAuthType: "VerifyClientCertIfGiven",
 							},
-							SniStrict: true,
+							SniStrict:             true,
+							DisableSessionTickets: true,
 							ALPNProtocols: []string{
 								"h2",
 								"http/1.1",
@@ -3319,6 +3438,7 @@ func TestLoadIngressRoutes(t *testing.T) {
 					Services: map[string]*dynamic.Service{
 						"default-test-route-6b204d94623b3df4370c": {
 							LoadBalancer: &dynamic.ServersLoadBalancer{
+								Strategy: dynamic.BalancerStrategyWRR,
 								Servers: []dynamic.Server{
 									{
 										URL: "http://10.10.0.1:80",
@@ -3380,6 +3500,7 @@ func TestLoadIngressRoutes(t *testing.T) {
 					Services: map[string]*dynamic.Service{
 						"default-test-route-6b204d94623b3df4370c": {
 							LoadBalancer: &dynamic.ServersLoadBalancer{
+								Strategy: dynamic.BalancerStrategyWRR,
 								Servers: []dynamic.Server{
 									{
 										URL: "http://10.10.0.1:80",
@@ -3396,6 +3517,7 @@ func TestLoadIngressRoutes(t *testing.T) {
 						},
 						"default-test-route-default-6b204d94623b3df4370c": {
 							LoadBalancer: &dynamic.ServersLoadBalancer{
+								Strategy: dynamic.BalancerStrategyWRR,
 								Servers: []dynamic.Server{
 									{
 										URL: "http://10.10.0.1:80",
@@ -3469,6 +3591,7 @@ func TestLoadIngressRoutes(t *testing.T) {
 					Services: map[string]*dynamic.Service{
 						"default-test-route-6b204d94623b3df4370c": {
 							LoadBalancer: &dynamic.ServersLoadBalancer{
+								Strategy: dynamic.BalancerStrategyWRR,
 								Servers: []dynamic.Server{
 									{
 										URL: "http://10.10.0.1:80",
@@ -3543,6 +3666,7 @@ func TestLoadIngressRoutes(t *testing.T) {
 					Services: map[string]*dynamic.Service{
 						"default-test-route-6b204d94623b3df4370c": {
 							LoadBalancer: &dynamic.ServersLoadBalancer{
+								Strategy: dynamic.BalancerStrategyWRR,
 								Servers: []dynamic.Server{
 									{
 										URL: "http://10.10.0.1:80",
@@ -3615,6 +3739,7 @@ func TestLoadIngressRoutes(t *testing.T) {
 					Services: map[string]*dynamic.Service{
 						"default-test-route-6b204d94623b3df4370c": {
 							LoadBalancer: &dynamic.ServersLoadBalancer{
+								Strategy: dynamic.BalancerStrategyWRR,
 								Servers: []dynamic.Server{
 									{
 										URL: "http://10.10.0.1:80",
@@ -3691,6 +3816,7 @@ func TestLoadIngressRoutes(t *testing.T) {
 					Services: map[string]*dynamic.Service{
 						"default-test-route-6b204d94623b3df4370c": {
 							LoadBalancer: &dynamic.ServersLoadBalancer{
+								Strategy: dynamic.BalancerStrategyWRR,
 								Servers: []dynamic.Server{
 									{
 										URL: "http://10.10.0.1:80",
@@ -3768,6 +3894,7 @@ func TestLoadIngressRoutes(t *testing.T) {
 					Services: map[string]*dynamic.Service{
 						"default-test-route-6b204d94623b3df4370c": {
 							LoadBalancer: &dynamic.ServersLoadBalancer{
+								Strategy: dynamic.BalancerStrategyWRR,
 								Servers: []dynamic.Server{
 									{
 										URL: "http://10.10.0.1:80",
@@ -3816,6 +3943,7 @@ func TestLoadIngressRoutes(t *testing.T) {
 					Services: map[string]*dynamic.Service{
 						"default-test-route-6b204d94623b3df4370c": {
 							LoadBalancer: &dynamic.ServersLoadBalancer{
+								Strategy: dynamic.BalancerStrategyWRR,
 								Servers: []dynamic.Server{
 									{
 										URL: "http://10.10.0.1:80",
@@ -3863,6 +3991,7 @@ func TestLoadIngressRoutes(t *testing.T) {
 					Services: map[string]*dynamic.Service{
 						"default-test-route-6b204d94623b3df4370c": {
 							LoadBalancer: &dynamic.ServersLoadBalancer{
+								Strategy: dynamic.BalancerStrategyWRR,
 								Servers: []dynamic.Server{
 									{
 										URL: "https://10.10.0.5:8443",
@@ -3910,6 +4039,7 @@ func TestLoadIngressRoutes(t *testing.T) {
 					Services: map[string]*dynamic.Service{
 						"default-test-route-6b204d94623b3df4370c": {
 							LoadBalancer: &dynamic.ServersLoadBalancer{
+								Strategy: dynamic.BalancerStrategyWRR,
 								Servers: []dynamic.Server{
 									{
 										URL: "https://10.10.0.7:8443",
@@ -4160,7 +4290,10 @@ func TestLoadIngressRoutes(t *testing.T) {
 					Middlewares: map[string]*dynamic.Middleware{
 						"default-errorpage": {
 							Errors: &dynamic.ErrorPage{
-								Status:  []string{"404", "500"},
+								Status: []string{"404", "500"},
+								StatusRewrites: map[string]int{
+									"404": 200,
+								},
 								Service: "default-errorpage-errorpage-service",
 								Query:   "query",
 							},
@@ -4169,6 +4302,7 @@ func TestLoadIngressRoutes(t *testing.T) {
 					Services: map[string]*dynamic.Service{
 						"default-errorpage-errorpage-service": {
 							LoadBalancer: &dynamic.ServersLoadBalancer{
+								Strategy: dynamic.BalancerStrategyWRR,
 								Servers: []dynamic.Server{
 									{
 										URL: "http://10.10.0.1:80",
@@ -4215,6 +4349,7 @@ func TestLoadIngressRoutes(t *testing.T) {
 					Services: map[string]*dynamic.Service{
 						"default-test-route-6b204d94623b3df4370c": {
 							LoadBalancer: &dynamic.ServersLoadBalancer{
+								Strategy: dynamic.BalancerStrategyWRR,
 								Servers: []dynamic.Server{
 									{
 										URL: "http://10.10.0.1:80",
@@ -4271,6 +4406,7 @@ func TestLoadIngressRoutes(t *testing.T) {
 					Services: map[string]*dynamic.Service{
 						"default-test-route-6b204d94623b3df4370c": {
 							LoadBalancer: &dynamic.ServersLoadBalancer{
+								Strategy: dynamic.BalancerStrategyWRR,
 								Servers: []dynamic.Server{
 									{
 										URL: "http://10.10.0.1:80",
@@ -4332,6 +4468,7 @@ func TestLoadIngressRoutes(t *testing.T) {
 					Services: map[string]*dynamic.Service{
 						"default-test-route-6b204d94623b3df4370c": {
 							LoadBalancer: &dynamic.ServersLoadBalancer{
+								Strategy: dynamic.BalancerStrategyWRR,
 								Servers: []dynamic.Server{
 									{
 										URL: "http://10.10.0.1:80",
@@ -4389,6 +4526,7 @@ func TestLoadIngressRoutes(t *testing.T) {
 					Services: map[string]*dynamic.Service{
 						"default-test-route-6b204d94623b3df4370c": {
 							LoadBalancer: &dynamic.ServersLoadBalancer{
+								Strategy: dynamic.BalancerStrategyWRR,
 								Servers: []dynamic.Server{
 									{
 										URL: "http://10.10.0.1:80",
@@ -4405,6 +4543,7 @@ func TestLoadIngressRoutes(t *testing.T) {
 						},
 						"default-test-route-default-6b204d94623b3df4370c": {
 							LoadBalancer: &dynamic.ServersLoadBalancer{
+								Strategy: dynamic.BalancerStrategyWRR,
 								Servers: []dynamic.Server{
 									{
 										URL: "http://10.10.0.1:80",
@@ -4453,6 +4592,7 @@ func TestLoadIngressRoutes(t *testing.T) {
 					Services: map[string]*dynamic.Service{
 						"default-test-route-6f97418635c7e18853da": {
 							LoadBalancer: &dynamic.ServersLoadBalancer{
+								Strategy: dynamic.BalancerStrategyWRR,
 								Servers: []dynamic.Server{
 									{
 										URL: "http://external.domain:80",
@@ -4496,6 +4636,7 @@ func TestLoadIngressRoutes(t *testing.T) {
 					Services: map[string]*dynamic.Service{
 						"default-test-route-6f97418635c7e18853da": {
 							LoadBalancer: &dynamic.ServersLoadBalancer{
+								Strategy: dynamic.BalancerStrategyWRR,
 								Servers: []dynamic.Server{
 									{
 										URL: "http://external.domain:80",
@@ -4539,6 +4680,7 @@ func TestLoadIngressRoutes(t *testing.T) {
 					Services: map[string]*dynamic.Service{
 						"default-test-route-6f97418635c7e18853da": {
 							LoadBalancer: &dynamic.ServersLoadBalancer{
+								Strategy: dynamic.BalancerStrategyWRR,
 								Servers: []dynamic.Server{
 									{
 										URL: "https://external.domain:443",
@@ -4598,7 +4740,7 @@ func TestLoadIngressRoutes(t *testing.T) {
 						"foo-test": {
 							ServerName:         "test",
 							InsecureSkipVerify: true,
-							RootCAs:            []types.FileOrContent{"TESTROOTCAS0", "TESTROOTCAS1", "TESTROOTCAS2", "TESTROOTCAS3", "TESTROOTCAS5", "TESTALLCERTS"},
+							RootCAs:            []types.FileOrContent{"TESTROOTCAS0", "TESTROOTCAS1", "TESTROOTCAS2", "TESTROOTCAS3", "TESTROOTCAS5", "TESTALLCERTS", "TESTROOTCASFROMCONFIGMAP", "TESTROOTCAS6"},
 							Certificates: tls.Certificates{
 								{CertFile: "TESTCERT1", KeyFile: "TESTKEY1"},
 								{CertFile: "TESTCERT2", KeyFile: "TESTKEY2"},
@@ -4642,6 +4784,7 @@ func TestLoadIngressRoutes(t *testing.T) {
 					Services: map[string]*dynamic.Service{
 						"default-external-svc-with-https-443": {
 							LoadBalancer: &dynamic.ServersLoadBalancer{
+								Strategy: dynamic.BalancerStrategyWRR,
 								Servers: []dynamic.Server{
 									{
 										URL: "https://external.domain:443",
@@ -4656,6 +4799,7 @@ func TestLoadIngressRoutes(t *testing.T) {
 						},
 						"default-whoamitls-443": {
 							LoadBalancer: &dynamic.ServersLoadBalancer{
+								Strategy: dynamic.BalancerStrategyWRR,
 								Servers: []dynamic.Server{
 									{
 										URL: "https://10.10.0.5:8443",
@@ -4741,6 +4885,7 @@ func TestLoadIngressRoutes(t *testing.T) {
 					Services: map[string]*dynamic.Service{
 						"default-test-route-6b204d94623b3df4370c": {
 							LoadBalancer: &dynamic.ServersLoadBalancer{
+								Strategy:       dynamic.BalancerStrategyWRR,
 								PassHostHeader: pointer(true),
 								ResponseForwarding: &dynamic.ResponseForwarding{
 									FlushInterval: ptypes.Duration(100 * time.Millisecond),
@@ -4781,6 +4926,7 @@ func TestLoadIngressRoutes(t *testing.T) {
 					Services: map[string]*dynamic.Service{
 						"default-test-route-6b204d94623b3df4370c": {
 							LoadBalancer: &dynamic.ServersLoadBalancer{
+								Strategy: dynamic.BalancerStrategyWRR,
 								Servers: []dynamic.Server{
 									{
 										URL: "http://10.10.0.1:80",
@@ -4837,6 +4983,7 @@ func TestLoadIngressRoutes(t *testing.T) {
 					Services: map[string]*dynamic.Service{
 						"default-test-route-6b204d94623b3df4370c": {
 							LoadBalancer: &dynamic.ServersLoadBalancer{
+								Strategy: dynamic.BalancerStrategyWRR,
 								Servers: []dynamic.Server{
 									{
 										URL: "http://10.10.0.1:8080",
@@ -4912,6 +5059,7 @@ func TestLoadIngressRoutes(t *testing.T) {
 						},
 						"default-test-errorpage-errorpage-service": {
 							LoadBalancer: &dynamic.ServersLoadBalancer{
+								Strategy:       dynamic.BalancerStrategyWRR,
 								PassHostHeader: pointer(true),
 								ResponseForwarding: &dynamic.ResponseForwarding{
 									FlushInterval: ptypes.Duration(100 * time.Millisecond),
@@ -4943,6 +5091,7 @@ func TestLoadIngressRoutes(t *testing.T) {
 						},
 						"default-whoami-without-endpointslice-endpoints-80": {
 							LoadBalancer: &dynamic.ServersLoadBalancer{
+								Strategy:       dynamic.BalancerStrategyWRR,
 								PassHostHeader: pointer(true),
 								ResponseForwarding: &dynamic.ResponseForwarding{
 									FlushInterval: ptypes.Duration(100 * time.Millisecond),
@@ -5055,6 +5204,7 @@ func TestLoadIngressRoutes(t *testing.T) {
 						},
 						"default-whoami2-8080": {
 							LoadBalancer: &dynamic.ServersLoadBalancer{
+								Strategy: dynamic.BalancerStrategyWRR,
 								Sticky: &dynamic.Sticky{
 									Cookie: &dynamic.Cookie{
 										Name:     "cookie",
@@ -5081,6 +5231,7 @@ func TestLoadIngressRoutes(t *testing.T) {
 						},
 						"default-whoami-80": {
 							LoadBalancer: &dynamic.ServersLoadBalancer{
+								Strategy: dynamic.BalancerStrategyWRR,
 								Sticky: &dynamic.Sticky{
 									Cookie: &dynamic.Cookie{
 										Name:     "cookie",
@@ -5107,6 +5258,7 @@ func TestLoadIngressRoutes(t *testing.T) {
 						},
 						"default-whoami3-8443": {
 							LoadBalancer: &dynamic.ServersLoadBalancer{
+								Strategy: dynamic.BalancerStrategyWRR,
 								Servers: []dynamic.Server{
 									{
 										URL: "http://10.10.0.7:8443",
@@ -5192,6 +5344,7 @@ func TestLoadIngressRoutes_multipleEndpointAddresses(t *testing.T) {
 			Services: map[string]*dynamic.Service{
 				"default-test-route-6b204d94623b3df4370c": {
 					LoadBalancer: &dynamic.ServersLoadBalancer{
+						Strategy:       dynamic.BalancerStrategyWRR,
 						PassHostHeader: pointer(true),
 						ResponseForwarding: &dynamic.ResponseForwarding{
 							FlushInterval: ptypes.Duration(100 * time.Millisecond),
@@ -6118,6 +6271,7 @@ func TestCrossNamespace(t *testing.T) {
 					Services: map[string]*dynamic.Service{
 						"default-test-crossnamespace-route-9313b71dbe6a649d5049": {
 							LoadBalancer: &dynamic.ServersLoadBalancer{
+								Strategy: dynamic.BalancerStrategyWRR,
 								Servers: []dynamic.Server{
 									{
 										URL: "http://10.10.0.1:80",
@@ -6196,6 +6350,7 @@ func TestCrossNamespace(t *testing.T) {
 					Services: map[string]*dynamic.Service{
 						"default-test-crossnamespace-route-6b204d94623b3df4370c": {
 							LoadBalancer: &dynamic.ServersLoadBalancer{
+								Strategy: dynamic.BalancerStrategyWRR,
 								Servers: []dynamic.Server{
 									{
 										URL: "http://10.10.0.1:80",
@@ -6212,6 +6367,7 @@ func TestCrossNamespace(t *testing.T) {
 						},
 						"default-test-crossnamespace-route-9313b71dbe6a649d5049": {
 							LoadBalancer: &dynamic.ServersLoadBalancer{
+								Strategy: dynamic.BalancerStrategyWRR,
 								Servers: []dynamic.Server{
 									{
 										URL: "http://10.10.0.1:80",
@@ -6228,6 +6384,7 @@ func TestCrossNamespace(t *testing.T) {
 						},
 						"default-test-errorpage-errorpage-service": {
 							LoadBalancer: &dynamic.ServersLoadBalancer{
+								Strategy: dynamic.BalancerStrategyWRR,
 								Servers: []dynamic.Server{
 									{
 										URL: "http://10.10.0.1:80",
@@ -6244,6 +6401,7 @@ func TestCrossNamespace(t *testing.T) {
 						},
 						"default-test-crossnamespace-route-a1963878aac7331b7950": {
 							LoadBalancer: &dynamic.ServersLoadBalancer{
+								Strategy: dynamic.BalancerStrategyWRR,
 								Servers: []dynamic.Server{
 									{
 										URL: "http://10.10.0.1:80",
@@ -6323,6 +6481,7 @@ func TestCrossNamespace(t *testing.T) {
 						},
 						"default-cross-ns-route-1bc3efa892379bb93c6e": {
 							LoadBalancer: &dynamic.ServersLoadBalancer{
+								Strategy: dynamic.BalancerStrategyWRR,
 								Servers: []dynamic.Server{
 									{
 										URL: "http://10.10.0.1:80",
@@ -6340,6 +6499,7 @@ func TestCrossNamespace(t *testing.T) {
 						},
 						"cross-ns-whoami-svc-80": {
 							LoadBalancer: &dynamic.ServersLoadBalancer{
+								Strategy: dynamic.BalancerStrategyWRR,
 								Servers: []dynamic.Server{
 									{
 										URL: "http://10.10.0.1:80",
@@ -6398,6 +6558,7 @@ func TestCrossNamespace(t *testing.T) {
 						},
 						"default-whoami-80": {
 							LoadBalancer: &dynamic.ServersLoadBalancer{
+								Strategy: dynamic.BalancerStrategyWRR,
 								Servers: []dynamic.Server{
 									{
 										URL: "http://10.10.0.1:80",
@@ -6448,6 +6609,7 @@ func TestCrossNamespace(t *testing.T) {
 						},
 						"cross-ns-whoami-svc-80": {
 							LoadBalancer: &dynamic.ServersLoadBalancer{
+								Strategy: dynamic.BalancerStrategyWRR,
 								Servers: []dynamic.Server{
 									{
 										URL: "http://10.10.0.1:80",
@@ -6475,6 +6637,7 @@ func TestCrossNamespace(t *testing.T) {
 						},
 						"default-whoami-80": {
 							LoadBalancer: &dynamic.ServersLoadBalancer{
+								Strategy: dynamic.BalancerStrategyWRR,
 								Servers: []dynamic.Server{
 									{
 										URL: "http://10.10.0.1:80",
@@ -6523,6 +6686,7 @@ func TestCrossNamespace(t *testing.T) {
 					Services: map[string]*dynamic.Service{
 						"default-test-route-6b204d94623b3df4370c": {
 							LoadBalancer: &dynamic.ServersLoadBalancer{
+								Strategy: dynamic.BalancerStrategyWRR,
 								Servers: []dynamic.Server{
 									{
 										URL: "http://10.10.0.1:80",
@@ -6620,6 +6784,7 @@ func TestCrossNamespace(t *testing.T) {
 					Services: map[string]*dynamic.Service{
 						"default-test-route-6b204d94623b3df4370c": {
 							LoadBalancer: &dynamic.ServersLoadBalancer{
+								Strategy: dynamic.BalancerStrategyWRR,
 								Servers: []dynamic.Server{
 									{
 										URL: "http://10.10.0.1:80",
@@ -6683,6 +6848,7 @@ func TestCrossNamespace(t *testing.T) {
 					Services: map[string]*dynamic.Service{
 						"default-test-route-6b204d94623b3df4370c": {
 							LoadBalancer: &dynamic.ServersLoadBalancer{
+								Strategy: dynamic.BalancerStrategyWRR,
 								Servers: []dynamic.Server{
 									{
 										URL: "http://10.10.0.1:80",
@@ -7301,6 +7467,7 @@ func TestExternalNameService(t *testing.T) {
 					Services: map[string]*dynamic.Service{
 						"default-test-route-6f97418635c7e18853da": {
 							LoadBalancer: &dynamic.ServersLoadBalancer{
+								Strategy: dynamic.BalancerStrategyWRR,
 								Servers: []dynamic.Server{
 									{
 										URL: "http://external.domain:80",
@@ -7568,6 +7735,7 @@ func TestNativeLB(t *testing.T) {
 					Services: map[string]*dynamic.Service{
 						"default-test-route-6f97418635c7e18853da": {
 							LoadBalancer: &dynamic.ServersLoadBalancer{
+								Strategy:           dynamic.BalancerStrategyWRR,
 								ResponseForwarding: &dynamic.ResponseForwarding{FlushInterval: dynamic.DefaultFlushInterval},
 								Servers: []dynamic.Server{
 									{
@@ -7749,6 +7917,7 @@ func TestNodePortLB(t *testing.T) {
 					Services: map[string]*dynamic.Service{
 						"default-test-route-6f97418635c7e18853da": {
 							LoadBalancer: &dynamic.ServersLoadBalancer{
+								Strategy:           dynamic.BalancerStrategyWRR,
 								ResponseForwarding: &dynamic.ResponseForwarding{FlushInterval: dynamic.DefaultFlushInterval},
 								Servers: []dynamic.Server{
 									{
@@ -8192,6 +8361,7 @@ func TestGlobalNativeLB(t *testing.T) {
 					Services: map[string]*dynamic.Service{
 						"default-global-native-lb-6f97418635c7e18853da": {
 							LoadBalancer: &dynamic.ServersLoadBalancer{
+								Strategy:           dynamic.BalancerStrategyWRR,
 								ResponseForwarding: &dynamic.ResponseForwarding{FlushInterval: dynamic.DefaultFlushInterval},
 								Servers: []dynamic.Server{
 									{
@@ -8234,6 +8404,7 @@ func TestGlobalNativeLB(t *testing.T) {
 					Services: map[string]*dynamic.Service{
 						"default-test-route-6f97418635c7e18853da": {
 							LoadBalancer: &dynamic.ServersLoadBalancer{
+								Strategy:           dynamic.BalancerStrategyWRR,
 								ResponseForwarding: &dynamic.ResponseForwarding{FlushInterval: dynamic.DefaultFlushInterval},
 								Servers: []dynamic.Server{
 									{
