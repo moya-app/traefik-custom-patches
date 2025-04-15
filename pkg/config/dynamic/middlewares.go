@@ -184,6 +184,9 @@ type Compress struct {
 	Encodings []string `json:"encodings,omitempty" toml:"encodings,omitempty" yaml:"encodings,omitempty" export:"true"`
 	// DefaultEncoding specifies the default encoding if the `Accept-Encoding` header is not in the request or contains a wildcard (`*`).
 	DefaultEncoding string `json:"defaultEncoding,omitempty" toml:"defaultEncoding,omitempty" yaml:"defaultEncoding,omitempty" export:"true"`
+	// CompressionLevel defines the compression level (-1 = default, 0-9).
+	// Default: -1
+	CompressionLevel int `json:"compressionLevel,omitempty" toml:"compressionLevel,omitempty" yaml:"compressionLevel,omitempty" export:"true"`
 }
 
 func (c *Compress) SetDefaults() {

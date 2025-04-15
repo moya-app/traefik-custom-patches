@@ -10,6 +10,7 @@ import (
 
 	"github.com/andybalholm/brotli"
 	"github.com/klauspost/compress/gzhttp"
+	"github.com/klauspost/compress/gzip"
 	"github.com/klauspost/compress/zstd"
 	"github.com/traefik/traefik/v3/pkg/config/dynamic"
 	"github.com/traefik/traefik/v3/pkg/middlewares"
@@ -35,6 +36,7 @@ type compress struct {
 	defaultEncoding string
 	// supportedEncodings is a map of supported encodings and their priority.
 	supportedEncodings map[string]int
+	compressionLevel   int
 
 	brotliHandler http.Handler
 	gzipHandler   http.Handler
@@ -86,6 +88,11 @@ func New(ctx context.Context, next http.Handler, conf dynamic.Compress, name str
 		return nil, fmt.Errorf("unsupported default encoding: %s", conf.DefaultEncoding)
 	}
 
+	compressionLevel := gzip.DefaultCompression
+	if conf.CompressionLevel >= gzip.BestSpeed && conf.CompressionLevel <= gzip.BestCompression {
+		compressionLevel = conf.CompressionLevel
+	}
+
 	c := &compress{
 		next:               next,
 		name:               name,
@@ -95,6 +102,7 @@ func New(ctx context.Context, next http.Handler, conf dynamic.Compress, name str
 		encodings:          conf.Encodings,
 		defaultEncoding:    conf.DefaultEncoding,
 		supportedEncodings: buildSupportedEncodings(conf.Encodings),
+		compressionLevel:   compressionLevel,
 	}
 
 	var err error
@@ -192,11 +200,13 @@ func (c *compress) newGzipHandler() (http.Handler, error) {
 	if len(c.includes) > 0 {
 		wrapper, err = gzhttp.NewWrapper(
 			gzhttp.ContentTypes(c.includes),
+			gzhttp.CompressionLevel(c.compressionLevel),
 			gzhttp.MinSize(c.minSize),
 		)
 	} else {
 		wrapper, err = gzhttp.NewWrapper(
 			gzhttp.ExceptContentTypes(c.excludes),
+			gzhttp.CompressionLevel(c.compressionLevel),
 			gzhttp.MinSize(c.minSize),
 		)
 	}
