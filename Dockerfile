@@ -13,7 +13,7 @@ RUN yarn install --network-timeout 600000
 RUN yarn build
 
 # BUILD
-FROM --platform=$BUILDPLATFORM ${DOCKER_HUB_URL}library/golang:1.23-alpine AS gobuild
+FROM --platform=$BUILDPLATFORM ${DOCKER_HUB_URL}library/golang:1.24-alpine3.21 AS gobuild
 
 # See https://docs.docker.com/build/building/multi-platform/#cross-compiling-a-go-application
 ARG TARGETOS
@@ -35,10 +35,8 @@ COPY . /go/src/github.com/traefik/traefik
 RUN rm -rf /go/src/github.com/traefik/traefik/webui/static/
 COPY --from=webui /src/webui/static/ /go/src/github.com/traefik/traefik/webui/static/
 
-ENV TRAEFIK_VERSION=v3.3.0
-ENV CODENAME=cheddar
-
-#RUN mkdir -p ./dist && ./script/make.sh binary
+ENV TRAEFIK_VERSION=v3.3.5
+ENV CODENAME=saint-nectaire
 
 RUN mkdir -p dist && CGO_ENABLED=0 GOGC=off GOOS=${TARGETOS} GOARCH=${TARGETARCH} go build -ldflags "-s -w \
     -X github.com/traefik/traefik/v3/pkg/version.Version=${TRAEFIK_VERSION} \
